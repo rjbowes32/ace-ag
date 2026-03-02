@@ -1994,7 +1994,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
           <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Amount (kg/ha)</div><NumInput value={ccNutrientAmount} onChange={setCcNutrientAmount} w={80} /></div>
           <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Field size (ha)</div><NumInput value={ccFieldHa} onChange={setCcFieldHa} w={70} /></div>
         </div>
-        {ccCrop && !ccUseRB209 && <div style={{fontSize:9,color:"#6b7b6b",marginTop:6}}>💡 Or <button onClick={()=>{const rb=RB209[ccCrop]; if(rb){const val=ccNutrient==="N"?rb.N.sns_med:ccNutrient==="P"?rb.P[ccNutrient==="P"?"i2":"i2"]:ccNutrient==="K"?rb.K.i2:rb.S.marg; setCcNutrientAmount(val||0);}}} style={{background:"none",border:"none",color:"#2c6e3f",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>use RB209 recommendation</button> for {ccCrop}</div>}
+        {ccCrop && !ccUseRB209 && <div style={{fontSize:9,color:"#6b7b6b",marginTop:6}}>💡 Or <button onClick={()=>{const rb=RB209[ccCrop]; if(rb){let val=0; if(ccNutrient==="N") val=rb.N.sns_med; else if(ccNutrient==="P") val=rb.P.i2; else if(ccNutrient==="K") val=rb.K.i2; else if(ccNutrient==="SO3") val=rb.S.marg; setCcNutrientAmount(val||0);}}} style={{background:"none",border:"none",color:"#2c6e3f",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>use RB209 recommendation</button> for {ccCrop}</div>}
       </div>
 
       {/* Product selection area */}
@@ -2080,7 +2080,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
                 })()}
               </div>
             )}
-          </div>
+        </div>
         )}
 
         {!ccCrop && <div style={{background:"#f0f2ee",border:"1px solid #d4dace",borderRadius:8,padding:16,textAlign:"center",color:"#6b7b6b"}}>
