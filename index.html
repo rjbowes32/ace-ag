@@ -1796,6 +1796,48 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
   useEffect(() => { const pd={splits:splits.map(sp=>({label:sp.label,completedDate:sp.completedDate,items:sp.items.filter(it=>it.name).map(it=>({name:it.name,grade:it.grade,isManure:it.isManure,driveKg:it.driveKg,rateT:it.rateT,price:it.price}))})),totalCostHa:grandTot.cost}; onBudget(grandTot.cost,taggedFields,pd); }, [grandTot.cost,taggedFields,splits]);
   const toggleFav = (id,type) => type==="fert"?setFavFerts(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]):setFavManures(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
+  // Cost Comparison handlers
+  const addSolidProduct = (productId) => {
+    const prod = FERT_CATALOGUE.find(p=>p.id===productId&&!p.isLiquid);
+    if(prod) {
+      const nutVal = prod[ccNutrient]||0;
+      if(nutVal>0) {
+        const rateNeeded = ccNutrientAmount/(nutVal*10);
+        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"solid_fert",rate:rateNeeded,price:0}]);
+      }
+    }
+  };
+
+  const addLiquidProduct = (productId) => {
+    const prod = FERT_CATALOGUE.find(p=>p.id===productId&&p.isLiquid);
+    if(prod) {
+      const nutVal = prod[ccNutrient]||0;
+      if(nutVal>0) {
+        const rateNeeded = ccNutrientAmount/(nutVal*10);
+        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"liquid_fert",rate:rateNeeded,price:0}]);
+      }
+    }
+  };
+
+  const addManureProduct = (manureId) => {
+    const manure = MANURE_CATALOGUE.find(m=>m.id===manureId);
+    if(manure) {
+      const nutVal = ccNutrient==="N"?manure.nTotal:ccNutrient==="P"?manure.p2o5:ccNutrient==="K"?manure.k2o:manure.so3||0;
+      if(nutVal>0) {
+        const rateNeeded = ccNutrientAmount/nutVal;
+        setCcProducts(p=>[...p,{id:Date.now(),productId:manure.id,productName:manure.name,category:"organic",rate:rateNeeded,price:0}]);
+      }
+    }
+  };
+
+  const updateProductPrice = (productId,newPrice) => {
+    setCcProducts(p=>p.map(x=>x.id===productId?{...x,price:newPrice}:x));
+  };
+
+  const removeProduct = (productId) => {
+    setCcProducts(p=>p.filter(x=>x.id!==productId));
+  };
+
   return (<div>
     {/* Tab navigation */}
     <div style={{display:"flex",gap:3,marginBottom:12}}>
@@ -2005,19 +2047,19 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
             {/* Solid Products */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#2c6e3f",marginBottom:6}}>🟫 Solid Products</div>
-              <select onChange={e=>{if(e.target.value){const prod=FERT_CATALOGUE.find(p=>p.id===e.target.value&&!p.isLiquid); if(prod){const nutVal=prod[ccNutrient]||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/(nutVal*10); setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"solid_fert",rate:rateNeeded,price:0,unitPrice:"£/t"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add solid product...</option>{FERT_CATALOGUE.filter(p=>!p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+              <select onChange={e=>{if(e.target.value){addSolidProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add solid product...</option>{FERT_CATALOGUE.filter(p=>!p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
             </div>
             
             {/* Liquid Products */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#4a7c59",marginBottom:6}}>💧 Liquid Products</div>
-              <select onChange={e=>{if(e.target.value){const prod=FERT_CATALOGUE.find(p=>p.id===e.target.value&&p.isLiquid); if(prod){const nutVal=prod[ccNutrient]||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/(nutVal*10); setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"liquid_fert",rate:rateNeeded,price:0,unitPrice:"£/m³"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add liquid product...</option>{FERT_CATALOGUE.filter(p=>p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+              <select onChange={e=>{if(e.target.value){addLiquidProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add liquid product...</option>{FERT_CATALOGUE.filter(p=>p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
             </div>
             
             {/* Organic Manures */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#6b5b7b",marginBottom:6}}>🌱 Organic Manures</div>
-              <select onChange={e=>{if(e.target.value){const manure=MANURE_CATALOGUE.find(m=>m.id===e.target.value); if(manure){const nutVal=ccNutrient==="N"?manure.nTotal:ccNutrient==="P"?manure.p2o5:ccNutrient==="K"?manure.k2o:manure.so3||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/nutVal; setCcProducts(p=>[...p,{id:Date.now(),productId:manure.id,productName:manure.name,category:"organic",rate:rateNeeded,price:0,unitPrice:"£/t"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add manure...</option>{MANURE_CATALOGUE.map(m=>(<option key={m.id} value={m.id}>{m.name}</option>))}</select>
+              <select onChange={e=>{if(e.target.value){addManureProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add manure...</option>{MANURE_CATALOGUE.map(m=>(<option key={m.id} value={m.id}>{m.name}</option>))}</select>
             </div>
           </div>
 
@@ -2039,10 +2081,10 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
                     {ccProducts.map(prod=>{const costHa=prod.rate*prod.price; const totalCost=costHa*ccFieldHa; return(<tr key={prod.id} style={{borderBottom:"1px solid #e2e6de",background:"#fff"}}>
                       <td style={{padding:"8px"}}><span style={{fontWeight:600}}>{prod.productName}</span></td>
                       <td style={{padding:"8px",textAlign:"center"}}><strong>{prod.rate.toFixed(2)}</strong></td>
-                      <td style={{padding:"8px",textAlign:"center"}}><input type="number" value={prod.price} onChange={e=>{const newProd=[...ccProducts]; const idx=newProd.findIndex(p=>p.id===prod.id); if(idx>=0) newProd[idx].price=parseFloat(e.target.value)||0; setCcProducts(newProd);}} style={{...TI,width:70,textAlign:"center",fontSize:10}} /> {prod.unitPrice}</td>
+                      <td style={{padding:"8px",textAlign:"center"}}><input type="number" value={prod.price} onChange={e=>updateProductPrice(prod.id,parseFloat(e.target.value)||0)} style={{...TI,width:70,textAlign:"center",fontSize:10}} /> {prod.category==="liquid_fert"?"£/m³":"£/t"}</td>
                       <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:costHa>0?"#2c6e3f":"#d4dace"}}>£{costHa.toFixed(2)}</td>
                       <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:totalCost>0?"#b8922a":"#d4dace"}}>£{totalCost.toFixed(0)}</td>
-                      <td style={{padding:"8px",textAlign:"center"}}><button onClick={()=>setCcProducts(p=>p.filter(x=>x.id!==prod.id))} style={{background:"none",border:"none",color:"#c0392b77",cursor:"pointer",fontSize:14}}>×</button></td>
+                      <td style={{padding:"8px",textAlign:"center"}}><button onClick={()=>removeProduct(prod.id)} style={{background:"none",border:"none",color:"#c0392b77",cursor:"pointer",fontSize:14}}>×</button></td>
                     </tr>);})}
                   </tbody>
                 </table>
