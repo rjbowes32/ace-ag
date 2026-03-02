@@ -1565,11 +1565,12 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
   const [compSearch, setCompSearch] = useState({});
   const [compSuggestions, setCompSuggestions] = useState({});
   const [showCompSuggestions, setShowCompSuggestions] = useState({});
-  const [compProductType, setCompProductType] = useState("all"); // all | solid | liquid
-  const [targetN, setTargetN] = useState(0);
-  const [targetP, setTargetP] = useState(0);
-  const [targetK, setTargetK] = useState(0);
-  const [targetSO3, setTargetSO3] = useState(0);
+  const [ccCrop, setCcCrop] = useState("");
+  const [ccNutrient, setCcNutrient] = useState("N");
+  const [ccNutrientAmount, setCcNutrientAmount] = useState(0);
+  const [ccUseRB209, setCcUseRB209] = useState(false);
+  const [ccProducts, setCcProducts] = useState([]);
+  const [ccFieldHa, setCcFieldHa] = useState(1);
   useEffect(() => { if(onSave) onSave({splits,taggedFields,crop,sns,pIdx,kIdx,sStat,fieldHa,favFerts,favManures}); }, [splits,taggedFields,crop,sns,pIdx,kIdx,sStat,fieldHa,favFerts,favManures]);
 
   const addSplit = () => setSplits(s => [...s, {id:Date.now(),label:`Split ${s.length+1}`,items:[],completedDate:""}]);
@@ -1984,155 +1985,110 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
 
     {/* COMPARISON TAB */}
     {fertTab === "comparison" && (<div>
-      {/* Comparison Controls */}
-      <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:12,marginBottom:15}}>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",marginBottom:10}}>
-          <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Total ha</div><NumInput value={compHa} onChange={setCompHa} w={80} /></div>
-          <div style={{display:"flex",gap:3,alignItems:"flex-end"}}><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Show:</div><button onClick={()=>setCompProductType("all")} style={{padding:"4px 10px",fontSize:10,fontWeight:compProductType==="all"?700:600,background:compProductType==="all"?"#2c6e3f":"#f0f2ee",color:compProductType==="all"?"#fff":"#6b7b6b",border:"1px solid",borderColor:compProductType==="all"?"#2c6e3f":"#d4dace",borderRadius:5,cursor:"pointer",transition:"all 0.15s"}}>All</button><button onClick={()=>setCompProductType("solid")} style={{padding:"4px 10px",fontSize:10,fontWeight:compProductType==="solid"?700:600,background:compProductType==="solid"?"#2c6e3f":"#f0f2ee",color:compProductType==="solid"?"#fff":"#6b7b6b",border:"1px solid",borderColor:compProductType==="solid"?"#2c6e3f":"#d4dace",borderRadius:5,cursor:"pointer",transition:"all 0.15s"}}>🟫 Solid</button><button onClick={()=>setCompProductType("liquid")} style={{padding:"4px 10px",fontSize:10,fontWeight:compProductType==="liquid"?700:600,background:compProductType==="liquid"?"#4a7c59":"#f0f2ee",color:compProductType==="liquid"?"#fff":"#6b7b6b",border:"1px solid",borderColor:compProductType==="liquid"?"#4a7c59":"#d4dace",borderRadius:5,cursor:"pointer",transition:"all 0.15s"}}>💧 Liquid</button></div>
+      {/* Setup section */}
+      <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>📋 Setup</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Crop</div><select value={ccCrop} onChange={e=>setCcCrop(e.target.value)} style={SS}><option value="">— Select crop —</option>{Object.keys(RB209).map(c=>(<option key={c} value={c}>{c}</option>))}</select></div>
+          <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Nutrient to supply</div><select value={ccNutrient} onChange={e=>setCcNutrient(e.target.value)} style={SS}><option value="N">Nitrogen (N)</option><option value="P">Phosphate (P2O5)</option><option value="K">Potash (K2O)</option><option value="SO3">Sulphur (SO3)</option></select></div>
+          <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Amount (kg/ha)</div><NumInput value={ccNutrientAmount} onChange={setCcNutrientAmount} w={80} /></div>
+          <div><div style={{fontSize:11,color:"#6b7b6b",marginBottom:2}}>Field size (ha)</div><NumInput value={ccFieldHa} onChange={setCcFieldHa} w={70} /></div>
         </div>
-        <div style={{borderTop:"1px solid #e2e6de",paddingTop:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:"#6b7b6b",marginBottom:8}}>🎯 Target Application Rates (kg/ha)</div>
-          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-            <div><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>N</div><NumInput value={targetN} onChange={setTargetN} w={60} /></div>
-            <div><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>P2O5</div><NumInput value={targetP} onChange={setTargetP} w={60} /></div>
-            <div><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>K2O</div><NumInput value={targetK} onChange={setTargetK} w={60} /></div>
-            <div><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>SO3</div><NumInput value={targetSO3} onChange={setTargetSO3} w={60} /></div>
-            <div style={{fontSize:9,color:"#d4dace"}}>Leave blank = no target</div>
-          </div>
-        </div>
+        {ccCrop && !ccUseRB209 && <div style={{fontSize:9,color:"#6b7b6b",marginTop:6}}>💡 Or <button onClick={()=>{const rb=RB209[ccCrop]; if(rb){const val=ccNutrient==="N"?rb.N.sns_med:ccNutrient==="P"?rb.P[ccNutrient==="P"?"i2":"i2"]:ccNutrient==="K"?rb.K.i2:rb.S.marg; setCcNutrientAmount(val||0);}}} style={{background:"none",border:"none",color:"#2c6e3f",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>use RB209 recommendation</button> for {ccCrop}</div>}
       </div>
 
-      {/* Programmes */}
-      {compProgs.filter(prog => progMatchesFilter(prog)).length > 0 ? (
-        <div>
-          {/* Write-up section */}
-          <div style={{background:"linear-gradient(135deg, #2c6e3f 0%, #4a7c59 100%)",borderRadius:10,padding:16,marginBottom:16,color:"#fff",boxShadow:"0 4px 12px rgba(44,110,63,0.15)"}}>
-            <div style={{fontSize:13,fontWeight:800,marginBottom:4}}>💡 Cost Comparison Analysis</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.95)",lineHeight:1.6}}>Compare different fertiliser programmes to find the most cost-effective solution for your farm. Select <strong>Solid</strong>, <strong>Liquid</strong>, or <strong>All</strong> products above to filter the view.</div>
-          </div>
-
-          {/* Edit programmes */}
-          <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:12,marginBottom:15,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-            <span style={{fontSize:11,fontWeight:700,color:"#6b7b6b"}}>Programmes ({compProgs.filter(prog => progMatchesFilter(prog)).length})</span>
-            <div style={{display:"flex",gap:3}}>
-              {compProgs.length === 1 ? (
-                <button onClick={addCompProg} style={{padding:"6px 12px",fontSize:10,fontWeight:700,background:"#2c6e3f10",color:"#2c6e3f",border:"1px solid #2c6e3f33",borderRadius:6,cursor:"pointer"}}>+ Add Programme</button>
-              ) : (
-                <button onClick={addCompProg} style={{padding:"6px 12px",fontSize:10,fontWeight:700,background:"#2c6e3f10",color:"#2c6e3f",border:"1px solid #2c6e3f33",borderRadius:6,cursor:"pointer"}}>+ Add Programme</button>
-              )}
+      {/* Product selection area */}
+      {ccCrop && ccNutrientAmount > 0 && (
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:12,marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>🧪 Select Products</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            {/* Solid Products */}
+            <div style={{flex:"1 1 200px",minWidth:200}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#2c6e3f",marginBottom:6}}>🟫 Solid Products</div>
+              <select onChange={e=>{if(e.target.value){const prod=FERT_CATALOGUE.find(p=>p.id===e.target.value&&!p.isLiquid); if(prod){const nutVal=prod[ccNutrient]||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/(nutVal*10); setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"solid_fert",rate:rateNeeded,price:0,unitPrice:"£/t"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add solid product...</option>{FERT_CATALOGUE.filter(p=>!p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+            </div>
+            
+            {/* Liquid Products */}
+            <div style={{flex:"1 1 200px",minWidth:200}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#4a7c59",marginBottom:6}}>💧 Liquid Products</div>
+              <select onChange={e=>{if(e.target.value){const prod=FERT_CATALOGUE.find(p=>p.id===e.target.value&&p.isLiquid); if(prod){const nutVal=prod[ccNutrient]||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/(nutVal*10); setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"liquid_fert",rate:rateNeeded,price:0,unitPrice:"£/m³"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add liquid product...</option>{FERT_CATALOGUE.filter(p=>p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+            </div>
+            
+            {/* Organic Manures */}
+            <div style={{flex:"1 1 200px",minWidth:200}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#6b5b7b",marginBottom:6}}>🌱 Organic Manures</div>
+              <select onChange={e=>{if(e.target.value){const manure=MANURE_CATALOGUE.find(m=>m.id===e.target.value); if(manure){const nutVal=ccNutrient==="N"?manure.nTotal:ccNutrient==="P"?manure.p2o5:ccNutrient==="K"?manure.k2o:manure.so3||0; if(nutVal>0){const rateNeeded=ccNutrientAmount/nutVal; setCcProducts(p=>[...p,{id:Date.now(),productId:manure.id,productName:manure.name,category:"organic",rate:rateNeeded,price:0,unitPrice:"£/t"}]);} e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add manure...</option>{MANURE_CATALOGUE.map(m=>(<option key={m.id} value={m.id}>{m.name}</option>))}</select>
             </div>
           </div>
 
-          {/* Individual programme edit sections */}
-          {compProgs.filter(prog => progMatchesFilter(prog)).map((prog,pi)=>{const costs=calcCompCost(prog);return(<div key={prog.id} style={{background:"#f7f8f6",border:"1px solid #e2e6de",borderRadius:10,padding:12,marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
-              <div style={{display:"flex",gap:4,alignItems:"center"}}><input value={prog.name} onChange={e=>renCompProg(prog.id,e.target.value)} style={{fontSize:14,fontWeight:700,color:"#2c6e3f",background:"#f7f8f6",border:"1px solid #d4dace",outline:"none",width:140,padding:"4px 8px",borderRadius:6,cursor:"text"}} placeholder="Programme name" /><select value={prog.crop||''} onChange={e=>setCompProgCrop(prog.id,e.target.value)} style={{fontSize:10,padding:"4px 6px",background:"#fff",border:"1px solid #d4dace",borderRadius:6,color:"#6b7b6b",cursor:"pointer"}}><option value="">— Select crop —</option>{CROPS.map(cr=><option key={cr.id} value={cr.id}>{cr.label}</option>)}</select><span style={{fontSize:10,color:"#6b7b6b"}}>{prog.items.length} items</span></div>
-              <div style={{display:"flex",gap:3}}>
-                <button onClick={()=>addCompItem(prog.id)} style={{padding:"4px 10px",fontSize:10,fontWeight:700,background:"#2c6e3f10",color:"#2c6e3f",border:"1px solid #2c6e3f33",borderRadius:6,cursor:"pointer"}}>+ Product</button>
-                <button onClick={()=>addCompItem(prog.id,true)} style={{padding:"4px 10px",fontSize:10,fontWeight:700,background:"#6b5b7b0a",color:"#6b5b7b",border:"1px solid #6b5b7b33",borderRadius:6,cursor:"pointer"}}>+ Manure</button>
-                {compProgs.length>1&&<button onClick={()=>rmCompProg(prog.id)} style={{padding:"4px 10px",fontSize:10,fontWeight:700,background:"#c0392b0a",color:"#c0392b",border:"1px solid #c0392b22",borderRadius:6,cursor:"pointer"}}>Remove</button>}
+            {/* Selected products table */}
+            {ccProducts.length > 0 && (
+              <div style={{background:"#f7f8f6",borderRadius:8,overflow:"hidden",marginBottom:12}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead>
+                    <tr style={{background:"#2c6e3f",color:"#fff"}}>
+                      <th style={{padding:"8px",textAlign:"left",fontWeight:700}}>Product</th>
+                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Rate (t/ha)</th>
+                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Unit Price</th>
+                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Cost/ha</th>
+                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Total Cost</th>
+                      <th style={{padding:"8px",textAlign:"center"}}>Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ccProducts.map(prod=>{const costHa=prod.rate*prod.price; const totalCost=costHa*ccFieldHa; return(<tr key={prod.id} style={{borderBottom:"1px solid #e2e6de",background:"#fff"}}>
+                      <td style={{padding:"8px"}}><span style={{fontWeight:600}}>{prod.productName}</span></td>
+                      <td style={{padding:"8px",textAlign:"center"}}><strong>{prod.rate.toFixed(2)}</strong></td>
+                      <td style={{padding:"8px",textAlign:"center"}}><input type="number" value={prod.price} onChange={e=>{const newProd=[...ccProducts]; const idx=newProd.findIndex(p=>p.id===prod.id); if(idx>=0) newProd[idx].price=parseFloat(e.target.value)||0; setCcProducts(newProd);}} style={{...TI,width:70,textAlign:"center",fontSize:10}} /> {prod.unitPrice}</td>
+                      <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:costHa>0?"#2c6e3f":"#d4dace"}}>£{costHa.toFixed(2)}</td>
+                      <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:totalCost>0?"#b8922a":"#d4dace"}}>£{totalCost.toFixed(0)}</td>
+                      <td style={{padding:"8px",textAlign:"center"}}><button onClick={()=>setCcProducts(p=>p.filter(x=>x.id!==prod.id))} style={{background:"none",border:"none",color:"#c0392b77",cursor:"pointer",fontSize:14}}>×</button></td>
+                    </tr>);})}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            {/* Programme items */}
-            {prog.items.map(it=>{const{tHa,kgHa}=calcRate(it);return(<div key={it.id} style={{background:it.isManure?"#6b5b7b08":"#fff",border:it.isManure?"1px solid #6b5b7b22":"1px solid #d4dace",borderRadius:6,padding:8,marginBottom:6,display:"flex",gap:6,alignItems:"flex-end",flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 120px",position:"relative"}} data-comp-search>
-                <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>{it.isManure?"Manure":"Product"}</div>
-                {it.isManure ? (
-                  <input value={it.name} onChange={e=>ufComp(prog.id,it.id,"name",e.target.value)} placeholder="e.g. Cattle slurry" style={{...TI,fontSize:11,position:"relative",zIndex:10}} />
-                ) : (
-                  <>
-                    <input value={compSearch[`${prog.id}-${it.id}`] || it.name} onChange={e=>handleCompProductSearch(`${prog.id}`, `${it.id}`, e.target.value)} onFocus={() => {const k=`${prog.id}-${it.id}`; if(compSuggestions[k]?.length>0) setShowCompSuggestions(prev=>({...prev,[k]:true}));}} placeholder="e.g. Nitram" style={{...TI,fontSize:11,position:"relative",zIndex:10}} />
-                    {showCompSuggestions[`${prog.id}-${it.id}`] && compSuggestions[`${prog.id}-${it.id}`]?.length > 0 && (
-                      <div style={{position:"absolute",top:"100%",left:0,right:0,background:"#fff",border:"1px solid #d4dace",borderRadius:6,boxShadow:"0 4px 12px rgba(0,0,0,0.08)",zIndex:1001,maxHeight:"150px",overflowY:"auto",marginTop:2}}>
-                        {compSuggestions[`${prog.id}-${it.id}`].map((prod, idx) => (
-                          <div key={idx} onClick={(e)=>{e.preventDefault();e.stopPropagation();handleCompProductSelect(prog.id,it.id,prod);}} style={{padding:"6px 10px",cursor:"pointer",fontSize:10,borderBottom:prod.isCustom?"none":"1px solid #f0f2ee",color:prod.isCustom?"#2c6e3f":"#1a2e1a",transition:"background 0.15s",userSelect:"none",background:prod.isCustom?"#f0f2ee":"transparent",fontWeight:prod.isCustom?700:600,borderTop:prod.isCustom?"1px solid #d4dace":"none"}} onMouseEnter={e=>e.currentTarget.style.background=prod.isCustom?"#2c6e3f08":"#f7f8f6"} onMouseLeave={e=>e.currentTarget.style.background=prod.isCustom?"#f0f2ee":"transparent"}>
-                          <div style={{fontWeight:prod.isCustom?700:600}}>{prod.name}</div>
-                          {!prod.isCustom && <div style={{color:"#6b7b6b",fontSize:9}}>{prod.grade}</div>}
-                        </div>
-                        ))}
+            )}
+
+            {/* Summary */}
+            {ccProducts.length > 0 && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:10}}>
+                {(() => {
+                  const totalCostPerHa = ccProducts.reduce((s,p)=>s+(p.rate*p.price),0);
+                  const totalCost = totalCostPerHa * ccFieldHa;
+                  const solidVolume = ccProducts.filter(p=>p.category.includes("solid")).reduce((s,p)=>s+p.rate,0) * ccFieldHa;
+                  const liquidVolume = ccProducts.filter(p=>p.category==="liquid_fert").reduce((s,p)=>{const prod=FERT_CATALOGUE.find(x=>x.id===p.productId); return s+(p.rate*(prod?.sg||1.2))*1000;},0) / ccFieldHa;
+                  return (
+                    <>
+                      <div style={{background:"#2c6e3f12",borderRadius:6,padding:10}}>
+                        <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Cost / ha</div>
+                        <div style={{fontSize:14,fontWeight:800,color:"#2c6e3f"}}>£{totalCostPerHa.toFixed(2)}</div>
                       </div>
-                    )}
-                  </>
-                )}
+                      <div style={{background:"#b8922a0a",borderRadius:6,padding:10}}>
+                        <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Total ({ccFieldHa}ha)</div>
+                        <div style={{fontSize:14,fontWeight:800,color:"#b8922a"}}>£{totalCost.toFixed(0)}</div>
+                      </div>
+                      {solidVolume > 0 && <div style={{background:"#f0f2ee",borderRadius:6,padding:10}}>
+                        <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Solid (tonnes)</div>
+                        <div style={{fontSize:14,fontWeight:800,color:"#1a2e1a"}}>{solidVolume.toFixed(1)} t</div>
+                      </div>}
+                      {liquidVolume > 0 && <div style={{background:"#2980b910",borderRadius:6,padding:10}}>
+                        <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Liquid (m³/ha)</div>
+                        <div style={{fontSize:14,fontWeight:800,color:"#4a7c59"}}>{liquidVolume.toFixed(1)} m³</div>
+                      </div>}
+                    </>
+                  );
+                })()}
               </div>
-              {it.isManure ? (
-                <>
-                  <div><div style={{fontSize:9,color:"#6b5b7b"}}>Type</div><select value={it.manureType||"slurry"} onChange={e=>ufComp(prog.id,it.id,"manureType",e.target.value)} style={{...SS,fontSize:9,width:70}}><option value="slurry">Slurry</option><option value="digestate">Digestate</option><option value="fym">FYM</option><option value="compost">Compost</option></select></div>
-                  <div><div style={{fontSize:9,color:"#6b5b7b"}}>Rate</div><NumInput value={it.rateT} onChange={v=>ufComp(prog.id,it.id,"rateT",v)} w={50} /></div>
-                  <div><div style={{fontSize:9,color:"#6b5b7b"}}>N (kg/t)</div><NumInput value={it.N} onChange={v=>ufComp(prog.id,it.id,"N",v)} w={50} /></div>
-                  <div><div style={{fontSize:9,color:"#6b5b7b"}}>Unit</div><select value={it.costUnit||"\u00a3/t"} onChange={e=>ufComp(prog.id,it.id,"costUnit",e.target.value)} style={{...SS,fontSize:9,width:60}}><option value="\u00a3/t">\u00a3/t</option><option value="\u00a3/m\u00b3">\u00a3/m\u00b3</option></select></div>
-                  <div><div style={{fontSize:9,color:"#6b5b7b",fontWeight:600}}>Cost</div><NumInput value={it.price||0} onChange={v=>ufComp(prog.id,it.id,"price",v)} w={50} /></div>
-                </>
-              ) : (
-                <>
-                  {!it.isCustom && <div><div style={{fontSize:9,color:"#6b7b6b"}}>Grade</div><input value={it.grade} onChange={e=>{const u=parseGrade(e.target.value,it);setCompProgs(ps=>ps.map(p2=>p2.id===prog.id?{...p2,items:p2.items.map(x=>x.id===it.id?u:x)}:p2));}} placeholder="34.5-0-0" style={{...TI,fontSize:10,width:70}} /></div>}
-                  {it.isCustom && <div style={{display:"flex",gap:6,alignItems:"flex-end",flexWrap:"wrap"}}><div><div style={{fontSize:9,color:"#6b7b6b"}}>N%</div><NumInput value={it.N} onChange={v=>ufComp(prog.id,it.id,"N",v)} w={40} /></div><div><div style={{fontSize:9,color:"#6b7b6b"}}>P%</div><NumInput value={it.P} onChange={v=>ufComp(prog.id,it.id,"P",v)} w={40} /></div><div><div style={{fontSize:9,color:"#6b7b6b"}}>K%</div><NumInput value={it.K} onChange={v=>ufComp(prog.id,it.id,"K",v)} w={40} /></div><div><div style={{fontSize:9,color:"#6b7b6b"}}>SO3%</div><NumInput value={it.SO3} onChange={v=>ufComp(prog.id,it.id,"SO3",v)} w={40} /></div></div>}
-                  {it.isLiquid && <div><div style={{fontSize:9,color:"#4a7c59",fontWeight:600}}>SG</div><NumInput value={it.sg||1.2} onChange={v=>ufComp(prog.id,it.id,"sg",v)} w={45} /></div>}
-                  <div><div style={{fontSize:9,color:"#6b7b6b"}}>Apply</div><NumInput value={it.driveKg} onChange={v=>ufComp(prog.id,it.id,"driveKg",v)} w={50} /></div>
-                  <div><div style={{fontSize:9,color:"#6b7b6b"}}>Nutrient</div><select value={it.driveNut} onChange={e=>ufComp(prog.id,it.id,"driveNut",e.target.value)} style={{...SS,fontSize:9,width:70}}>{FNUTS.filter(n=>it[n]>0).map(n=>(<option key={n} value={n}>{n==="P"?"P2O5":n==="K"?"K2O":n}</option>))}</select></div>
-                  <div><div style={{fontSize:9,color:"#6b7b6b"}}>£/t</div><NumInput value={it.price||0} onChange={v=>ufComp(prog.id,it.id,"price",v)} w={50} /></div>
-                </>
-              )}
-              <button onClick={()=>rmCompItem(prog.id,it.id)} style={{background:"none",border:"none",color:"#c0392b44",cursor:"pointer",fontSize:14}}>×</button>
-            </div>);})}
-            {prog.items.length===0&&<div style={{fontSize:11,color:"#d4dace",textAlign:"center",padding:10}}>Click + Add to add products</div>}
-            {prog.items.some(it=>it.name) && (<div style={{background:"#fff",borderRadius:6,padding:10,display:"flex",gap:12,flexWrap:"wrap",flexDirection:"column",border:"1px solid #d4dace"}}>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{fontSize:11,fontWeight:700,color:"#6b7b6b"}}>Cost: <span style={{fontSize:13,color:"#2c6e3f"}}>£{costs.costHa.toFixed(2)}/ha</span> × {compHa}ha = <span style={{fontSize:13,fontWeight:800,color:"#b8922a"}}>£{costs.cost.toFixed(0)}</span></span>
-                {compCrop && <span style={{fontSize:10,padding:"2px 6px",background:"#2c6e3f12",borderRadius:4,color:"#2c6e3f",fontWeight:700}}>N: {costs.N.toFixed(0)} / {costs.needN} kg ({costs.percent}%)</span>}
-              </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",paddingTop:8,borderTop:"1px solid #e2e6de"}}>
-                <span style={{fontSize:11,fontWeight:700,color:"#6b7b6b"}}>Quantities:</span>
-                {costs.totalTotalT > 0 && <span style={{fontSize:11,padding:"2px 8px",background:"#2c6e3f12",borderRadius:4,color:"#2c6e3f",fontWeight:700}}>{costs.totalTotalT.toFixed(2)} t</span>}
-                {costs.totalLiquidM3Total > 0 && <span style={{fontSize:11,padding:"2px 8px",background:"#2980b912",borderRadius:4,color:"#4a7c59",fontWeight:700}}>{costs.totalLiquidM3Total.toFixed(2)} m³</span>}
-                {costs.totalTotalT === 0 && <span style={{fontSize:10,color:"#d4dace"}}>— Add products with set rates</span>}
-              </div>
-            </div>)}
-          </div>);})}
+            )}
+          </div>
+        )}
 
-          {/* Visual comparison cards */}
-          {compProgs.filter(prog => progMatchesFilter(prog)).some(p=>p.items.some(it=>it.name)) && (
-            <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:16,marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:800,color:"#6b7b6b",marginBottom:12,textTransform:"uppercase"}}>📊 Quick Comparison</div>
-              <div style={{display:"grid",gridTemplateColumns:`repeat(auto-fit, minmax(180px, 1fr))`,gap:12}}>
-                {compProgs.filter(prog => progMatchesFilter(prog)).map(prog=>{const costs=calcCompCost(prog);const allCosts=[...compProgs.filter(p=>progMatchesFilter(p)).map(p=>calcCompCost(p).cost)];const maxCost=Math.max(...allCosts);const minCost=Math.min(...allCosts.filter(c=>c>0));const isBest=costs.cost>0&&costs.cost===minCost;return(<div key={prog.id} style={{background:(targetN>0||targetP>0||targetK>0||targetSO3>0)?getNutrientMatchColor(prog):(isBest?"#2c6e3f08":"#f7f8f6"),border:`2px solid ${(targetN>0||targetP>0||targetK>0||targetSO3>0)?getNutrientMatchBorder(prog):(isBest?"#2c6e3f":"#d4dace")}`,borderRadius:8,padding:12,textAlign:"center",position:"relative",transition:"all 0.2s"}}>
-                  {isBest&&<div style={{position:"absolute",top:-12,left:"50%",transform:"translateX(-50%)",background:"#2c6e3f",color:"#fff",padding:"2px 12px",borderRadius:8,fontSize:9,fontWeight:800}}>🏆 Best Value</div>}
-                  {(targetN>0||targetP>0||targetK>0||targetSO3>0)&&<div style={{fontSize:9,color:getNutrientMatchBorder(prog),fontWeight:700,marginBottom:6}}>{getNutrientMatchColor(prog)==="#2c6e3f1a"?"✓ Targets Met":getNutrientMatchColor(prog)==="#f39c121a"?"⚠ Partial Match":"✗ Poor Match"}</div>}
-                  <div style={{fontSize:12,fontWeight:800,color:"#2c6e3f",marginBottom:8,marginTop:isBest?8:0}}>{prog.name}</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{background:"#2c6e3f12",borderRadius:6,padding:8}}>
-                      <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Cost / ha</div>
-                      <div style={{fontSize:14,fontWeight:800,color:"#2c6e3f"}}>£{costs.costHa.toFixed(2)}</div>
-                    </div>
-                    <div style={{background:"#b8922a0a",borderRadius:6,padding:8}}>
-                      <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Total ({compHa}ha)</div>
-                      <div style={{fontSize:14,fontWeight:800,color:"#b8922a"}}>£{costs.cost.toFixed(0)}</div>
-                    </div>
-                    {costs.totalTotalT > 0 && <div style={{background:"#f0f2ee",borderRadius:6,padding:8}}>
-                      <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Tonnes</div>
-                      <div style={{fontSize:13,fontWeight:800,color:"#1a2e1a"}}>{costs.totalTotalT.toFixed(2)} t</div>
-                    </div>}
-                    {costs.totalLiquidM3Total > 0 && <div style={{background:"#2980b910",borderRadius:6,padding:8}}>
-                      <div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Cubic Metres</div>
-                      <div style={{fontSize:13,fontWeight:800,color:"#4a7c59"}}>{costs.totalLiquidM3Total.toFixed(2)} m³</div>
-                    </div>}
-                    {costs.N > 0 && <div style={{background:"#2c6e3f12",borderRadius:6,padding:6}}>
-                      <div style={{fontSize:9,color:"#6b7b6b"}}>N: {costs.N.toFixed(0)} kg</div>
-                      {costs.needN > 0 && <div style={{fontSize:9,color:"#2c6e3f",fontWeight:700}}>({costs.percent}% of recommendation)</div>}
-                    </div>}
-                  </div>
-                </div>);})}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:20,textAlign:"center",color:"#d4dace"}}>
-          <div style={{fontSize:12,marginBottom:6}}>No programmes match the selected filter</div>
-          <div style={{fontSize:11}}>Create programmes with {compProductType === "solid" ? "solid" : compProductType === "liquid" ? "liquid" : ""} products or change the filter above</div>
-        </div>
-      )}
-    </div>)}
+        {!ccCrop && <div style={{background:"#f0f2ee",border:"1px solid #d4dace",borderRadius:8,padding:16,textAlign:"center",color:"#6b7b6b"}}>
+          <div style={{fontSize:12,marginBottom:4}}>👇 Select a crop and nutrient amount to begin</div>
+          <div style={{fontSize:10}}>Then choose products from the selection below to compare costs</div>
+        </div>}
+
+      </div>)}
   </div>);
 };
 // ─── OPERATIONS / VARIABLE COSTS ────────────────────────────────────────────
