@@ -4013,8 +4013,9 @@ const BudgetTracker = ({fields, setFields, budgets, progState, onSave}) => {
 };
 
 // ─── AGRONOMY TAB ─────────────────────────────────────────────────────────
-const AgronomyTab = ({fields, saved, onSave, jobs, setJobs}) => {
+const AgronomyTab = ({fields, saved, onSave, jobs, setJobs, onBudget, onHerbBudget, progState, onProgSave}) => {
   const DTYPE = {id:"agron",label:"Agronomy",icon:"🔬",color:"#2c6e3f"};
+  const [agronomySubtab, setAgronomySubtab] = useState("inspections"); // inspections | cp | fert
   const [records, setRecords] = useState(saved?.records || []);
   const [editId, setEditId] = useState(null);
   const [filterField, setFilterField] = useState("all");
@@ -4269,114 +4270,139 @@ const AgronomyTab = ({fields, saved, onSave, jobs, setJobs}) => {
 
   return (
     <div>
-      {/* Pending Jobs */}
-      {(() => {
-        const pendingJobs = (jobs||[]).filter(j => j.status !== "completed" && j.type === "agron");
-        if (pendingJobs.length === 0) return null;
-        return (
-          <div style={{background:"#fffdf5",border:"1px solid #c17f2422",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <div style={{fontSize:10,fontWeight:700,color:"#c17f24",textTransform:"uppercase"}}>Pending Jobs ({pendingJobs.length})</div>
-              <div style={{fontSize:9,color:"#94a394"}}>Created from programmes. Click to start recording.</div>
-            </div>
-            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-              {pendingJobs.map(j => {
-                const fCount = (j.fieldIds||[]).length;
-                const fNames = (j.fieldIds||[]).slice(0,3).map(fid => fields.find(f=>f.id===fid)?.name||"").filter(Boolean).join(", ");
-                const statusCol = j.status==="in-progress"?"#2c6e3f":"#c17f24";
-                return (
-                  <div key={j.id} style={{position:"relative",display:"inline-block"}}>
-                    <button onClick={() => addFromJob(j)}
-                      style={{padding:"6px 12px",fontSize:10,borderRadius:8,border:`1px solid ${statusCol}22`,cursor:"pointer",textAlign:"left",
-                        background:j.status==="in-progress"?"#2c6e3f08":"#fff",color:"#1a2e1a",maxWidth:280}}>
-                      <div style={{fontWeight:700,fontSize:11,color:statusCol,marginBottom:2}}>{j.label}</div>
-                      <div style={{fontSize:9,color:"#6b7b6b"}}>{j.description?.slice(0,60)}{j.description?.length>60?"…":""}</div>
-                      <div style={{fontSize:9,color:"#94a394",marginTop:1}}>{fCount} field{fCount!==1?"s":""}{fNames?` · ${fNames}`:""}{fCount>3?"…":""}</div>
-                      {j.status==="in-progress" && <div style={{fontSize:8,color:"#2c6e3f",fontWeight:700,marginTop:2}}>IN PROGRESS</div>}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete this pending job?")) setJobs(prev => (prev||[]).filter(job => job.id !== j.id)); }}
-                      style={{position:"absolute",top:-2,right:-2,width:24,height:24,padding:0,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",cursor:"pointer",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Toolbar */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
-        <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
-          <select value={filterField} onChange={e=>setFilterField(e.target.value)} style={{...SS,fontSize:10,width:140}}>
-            <option value="all">All fields</option>
-            {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
-          <input type="date" value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
-          <span style={{fontSize:10,color:"#94a394"}}>to</span>
-          <input type="date" value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
-          {(filterField!=="all"||filterDateFrom||filterDateTo) && <button onClick={()=>{setFilterField("all");setFilterDateFrom("");setFilterDateTo("");}} style={{fontSize:10,color:"#c0392b55",background:"none",border:"none",cursor:"pointer"}}>Clear filters</button>}
-        </div>
-        <div style={{display:"flex",gap:4}}>
-          <select value={sortMode} onChange={e=>setSortMode(e.target.value)} style={{...SS,fontSize:10,width:90}}>
-            <option value="recent">Newest</option><option value="oldest">Oldest</option>
-          </select>
-          <button onClick={()=>setViewMode(v=>v==="grid"?"list":"grid")} style={{padding:"4px 10px",fontSize:10,background:viewMode==="grid"?"#2c6e3f10":"#f0f2ee",color:"#6b7b6b",border:"1px solid #e2e6de",borderRadius:6,cursor:"pointer"}}>{viewMode==="grid"?"▦ Grid":"☰ List"}</button>
-          <button onClick={addRec} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color,color:"#fff",border:"none",borderRadius:8,cursor:"pointer"}}>+ New {DTYPE.label}</button>
-          {filtered.length > 0 && <button onClick={exportCSV} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color+"0a",color:DTYPE.color,border:"none",borderRadius:8,cursor:"pointer"}}>Export CSV</button>}
-        </div>
+      {/* Agronomy Subtabs */}
+      <div style={{display:"flex",gap:3,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+        <button onClick={() => {setAgronomySubtab("inspections");setEditId(null);}} style={{padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,border:"none",cursor:"pointer",transition:"all 0.2s",
+          background:agronomySubtab==="inspections"?"#2c6e3f":"#2c6e3f08",color:agronomySubtab==="inspections"?"#fff":"#2c6e3f"}}>🔬 Inspections</button>
+        <button onClick={() => setAgronomySubtab("cp")} style={{padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,border:"none",cursor:"pointer",transition:"all 0.2s",
+          background:agronomySubtab==="cp"?"#c17f24":"#c17f240a",color:agronomySubtab==="cp"?"#fff":"#c17f24"}}>🍄 Crop Protection</button>
+        <button onClick={() => setAgronomySubtab("fert")} style={{padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,border:"none",cursor:"pointer",transition:"all 0.2s",
+          background:agronomySubtab==="fert"?"#4a7c59":"#4a7c590a",color:agronomySubtab==="fert"?"#fff":"#4a7c59"}}>🌱 Fertiliser</button>
       </div>
 
-      {/* Records */}
-      <div style={viewMode==="grid" ? {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8} : {}}>
-      {filtered.map(r => {
-        const isOpen = editId === r.id;
-        const fNames = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name || "").filter(Boolean).join(", ");
-        if (viewMode==="grid" && !isOpen) {
-          return (
-            <div key={r.id} onClick={()=>setEditId(r.id)} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:12,padding:"10px 12px",cursor:"pointer",transition:"all 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",borderTop:`3px solid ${DTYPE.color}`,position:"relative",minHeight:80}}>
-              {r.pinned && <span style={{position:"absolute",top:4,right:6,fontSize:12}}>📌</span>}
-              <div style={{fontSize:11,fontWeight:600,color:"#1a2e1a",marginBottom:3}}>{r.date}</div>
-              <div style={{fontSize:12,marginBottom:4}}>{summaryLine(r)}</div>
-              {fNames && <div style={{fontSize:9,color:"#94a394",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</div>}
-              {r.notes && <div style={{fontSize:9,color:"#6b7b6b",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{r.notes}</div>}
-              {(r.attachments||[]).length>0 && <span style={{fontSize:9,color:"#4a7c59"}}>📎 {r.attachments.length}</span>}
-            </div>
-          );
-        }
-        return (
-          <div key={r.id} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:10,padding:isOpen?"14px":"8px 14px",marginBottom:viewMode==="grid"?0:4,boxShadow:"0 1px 2px rgba(0,0,0,0.03)",borderLeft:`3px solid ${DTYPE.color}`,transition:"padding 0.15s",gridColumn:isOpen&&viewMode==="grid"?"1 / -1":"auto"}}>
-            <div onClick={()=>setEditId(isOpen?null:r.id)} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",flexWrap:"wrap"}}>
-              {r.pinned && <span style={{fontSize:11}}>📌</span>}
-              <span style={{fontSize:12,fontWeight:600,color:"#1a2e1a",minWidth:80}}>{r.date}</span>
-              <span style={{flex:"1 1 auto",fontSize:12}}>{summaryLine(r)}</span>
-              <span style={{fontSize:10,color:"#94a394",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</span>
-              <span style={{fontSize:10,color:"#d4dace"}}>{isOpen?"▼":"▶"}</span>
-            </div>
-            {isOpen && (
-              <div>
-                {renderForm(r)}
-                <div style={{display:"flex",gap:4,marginTop:8,borderTop:"1px solid #f0f2ee",paddingTop:6,flexWrap:"wrap",alignItems:"center"}}>
-                  <button onClick={(e)=>{e.stopPropagation();pinRec(r.id);}} style={{padding:"4px 10px",fontSize:10,background:r.pinned?"#c17f2410":"#f0f2ee",color:r.pinned?"#c17f24":"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer"}}>{r.pinned?"📌 Unpin":"📌 Pin"}</button>
-                  {r.jobId && (() => {
-                    const job = (jobs||[]).find(j => j.id === r.jobId);
-                    const done = job?.status === "completed";
+      {/* Inspections Subtab */}
+      {agronomySubtab === "inspections" && (
+        <div>
+          {/* Pending Jobs */}
+          {(() => {
+            const pendingJobs = (jobs||[]).filter(j => j.status !== "completed" && j.type === "agron");
+            if (pendingJobs.length === 0) return null;
+            return (
+              <div style={{background:"#fffdf5",border:"1px solid #c17f2422",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#c17f24",textTransform:"uppercase"}}>Pending Jobs ({pendingJobs.length})</div>
+                  <div style={{fontSize:9,color:"#94a394"}}>Created from programmes. Click to start recording.</div>
+                </div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {pendingJobs.map(j => {
+                    const fCount = (j.fieldIds||[]).length;
+                    const fNames = (j.fieldIds||[]).slice(0,3).map(fid => fields.find(f=>f.id===fid)?.name||"").filter(Boolean).join(", ");
+                    const statusCol = j.status==="in-progress"?"#2c6e3f":"#c17f24";
                     return (
-                      <button onClick={() => { if(!done) completeJob(r.jobId); }} style={{padding:"4px 12px",fontSize:10,fontWeight:700,background:done?"#2c6e3f10":"#2c6e3f",color:done?"#2c6e3f":"#fff",border:"none",borderRadius:6,cursor:done?"default":"pointer"}}>
-                        {done ? "✓ Job Complete" : "Mark Job Complete"}
-                      </button>
+                      <div key={j.id} style={{position:"relative",display:"inline-block"}}>
+                        <button onClick={() => addFromJob(j)}
+                          style={{padding:"6px 12px",fontSize:10,borderRadius:8,border:`1px solid ${statusCol}22`,cursor:"pointer",textAlign:"left",
+                            background:j.status==="in-progress"?"#2c6e3f08":"#fff",color:"#1a2e1a",maxWidth:280}}>
+                          <div style={{fontWeight:700,fontSize:11,color:statusCol,marginBottom:2}}>{j.label}</div>
+                          <div style={{fontSize:9,color:"#6b7b6b"}}>{j.description?.slice(0,60)}{j.description?.length>60?"…":""}</div>
+                          <div style={{fontSize:9,color:"#94a394",marginTop:1}}>{fCount} field{fCount!==1?"s":""}{fNames?` · ${fNames}`:""}{fCount>3?"…":""}</div>
+                          {j.status==="in-progress" && <div style={{fontSize:8,color:"#2c6e3f",fontWeight:700,marginTop:2}}>IN PROGRESS</div>}
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete this pending job?")) setJobs(prev => (prev||[]).filter(job => job.id !== j.id)); }}
+                          style={{position:"absolute",top:-2,right:-2,width:24,height:24,padding:0,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",cursor:"pointer",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
+                      </div>
                     );
-                  })()}
-                  {r.jobId && <span style={{fontSize:9,color:"#94a394"}}>From: {(jobs||[]).find(j=>j.id===r.jobId)?.label || "Job"}</span>}
-                  <button onClick={()=>dupRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"#f0f2ee",color:"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer",marginLeft:r.jobId?"auto":0}}>Duplicate</button>
-                  <button onClick={()=>rmRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"none",color:"#c0392b55",border:"none",borderRadius:6,cursor:"pointer"}}>Delete</button>
+                  })}
                 </div>
               </div>
-            )}
+            );
+          })()}
+
+          {/* Toolbar */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+            <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={filterField} onChange={e=>setFilterField(e.target.value)} style={{...SS,fontSize:10,width:140}}>
+                <option value="all">All fields</option>
+                {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <input type="date" value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
+              <span style={{fontSize:10,color:"#94a394"}}>to</span>
+              <input type="date" value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
+              {(filterField!=="all"||filterDateFrom||filterDateTo) && <button onClick={()=>{setFilterField("all");setFilterDateFrom("");setFilterDateTo("");}} style={{fontSize:10,color:"#c0392b55",background:"none",border:"none",cursor:"pointer"}}>Clear filters</button>}
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <select value={sortMode} onChange={e=>setSortMode(e.target.value)} style={{...SS,fontSize:10,width:90}}>
+                <option value="recent">Newest</option><option value="oldest">Oldest</option>
+              </select>
+              <button onClick={()=>setViewMode(v=>v==="grid"?"list":"grid")} style={{padding:"4px 10px",fontSize:10,background:viewMode==="grid"?"#2c6e3f10":"#f0f2ee",color:"#6b7b6b",border:"1px solid #e2e6de",borderRadius:6,cursor:"pointer"}}>{viewMode==="grid"?"▦ Grid":"☰ List"}</button>
+              <button onClick={addRec} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color,color:"#fff",border:"none",borderRadius:8,cursor:"pointer"}}>+ New {DTYPE.label}</button>
+              {filtered.length > 0 && <button onClick={exportCSV} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color+"0a",color:DTYPE.color,border:"none",borderRadius:8,cursor:"pointer"}}>Export CSV</button>}
+            </div>
           </div>
-        );
-      })}
-      </div>
-      {filtered.length === 0 && <div style={{padding:24,textAlign:"center",color:"#94a394",fontSize:12}}>No agronomy records{filterField!=="all"||filterDateFrom?" matching filters":""}. Click "+ New Agronomy" to start.</div>}
+
+          {/* Records */}
+          <div style={viewMode==="grid" ? {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8} : {}}>
+          {filtered.map(r => {
+            const isOpen = editId === r.id;
+            const fNames = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name || "").filter(Boolean).join(", ");
+            if (viewMode==="grid" && !isOpen) {
+              return (
+                <div key={r.id} onClick={()=>setEditId(r.id)} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:12,padding:"10px 12px",cursor:"pointer",transition:"all 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",borderTop:`3px solid ${DTYPE.color}`,position:"relative",minHeight:80}}>
+                  {r.pinned && <span style={{position:"absolute",top:4,right:6,fontSize:12}}>📌</span>}
+                  <div style={{fontSize:11,fontWeight:600,color:"#1a2e1a",marginBottom:3}}>{r.date}</div>
+                  <div style={{fontSize:12,marginBottom:4}}>{summaryLine(r)}</div>
+                  {fNames && <div style={{fontSize:9,color:"#94a394",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</div>}
+                  {r.notes && <div style={{fontSize:9,color:"#6b7b6b",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{r.notes}</div>}
+                  {(r.attachments||[]).length>0 && <span style={{fontSize:9,color:"#4a7c59"}}>📎 {r.attachments.length}</span>}
+                </div>
+              );
+            }
+            return (
+              <div key={r.id} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:10,padding:isOpen?"14px":"8px 14px",marginBottom:viewMode==="grid"?0:4,boxShadow:"0 1px 2px rgba(0,0,0,0.03)",borderLeft:`3px solid ${DTYPE.color}`,transition:"padding 0.15s",gridColumn:isOpen&&viewMode==="grid"?"1 / -1":"auto"}}>
+                <div onClick={()=>setEditId(isOpen?null:r.id)} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",flexWrap:"wrap"}}>
+                  {r.pinned && <span style={{fontSize:11}}>📌</span>}
+                  <span style={{fontSize:12,fontWeight:600,color:"#1a2e1a",minWidth:80}}>{r.date}</span>
+                  <span style={{flex:"1 1 auto",fontSize:12}}>{summaryLine(r)}</span>
+                  <span style={{fontSize:10,color:"#94a394",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</span>
+                  <span style={{fontSize:10,color:"#d4dace"}}>{isOpen?"▼":"▶"}</span>
+                </div>
+                {isOpen && (
+                  <div>
+                    {renderForm(r)}
+                    <div style={{display:"flex",gap:4,marginTop:8,borderTop:"1px solid #f0f2ee",paddingTop:6,flexWrap:"wrap",alignItems:"center"}}>
+                      <button onClick={(e)=>{e.stopPropagation();pinRec(r.id);}} style={{padding:"4px 10px",fontSize:10,background:r.pinned?"#c17f2410":"#f0f2ee",color:r.pinned?"#c17f24":"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer"}}>{r.pinned?"📌 Unpin":"📌 Pin"}</button>
+                      {r.jobId && (() => {
+                        const job = (jobs||[]).find(j => j.id === r.jobId);
+                        const done = job?.status === "completed";
+                        return (
+                          <button onClick={() => { if(!done) completeJob(r.jobId); }} style={{padding:"4px 12px",fontSize:10,fontWeight:700,background:done?"#2c6e3f10":"#2c6e3f",color:done?"#2c6e3f":"#fff",border:"none",borderRadius:6,cursor:done?"default":"pointer"}}>
+                            {done ? "✓ Job Complete" : "Mark Job Complete"}
+                          </button>
+                        );
+                      })()}
+                      {r.jobId && <span style={{fontSize:9,color:"#94a394"}}>From: {(jobs||[]).find(j=>j.id===r.jobId)?.label || "Job"}</span>}
+                      <button onClick={()=>dupRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"#f0f2ee",color:"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer",marginLeft:r.jobId?"auto":0}}>Duplicate</button>
+                      <button onClick={()=>rmRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"none",color:"#c0392b55",border:"none",borderRadius:6,cursor:"pointer"}}>Delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          </div>
+          {filtered.length === 0 && <div style={{padding:24,textAlign:"center",color:"#94a394",fontSize:12}}>No agronomy records{filterField!=="all"||filterDateFrom?" matching filters":""}. Click "+ New Agronomy" to start.</div>}
+        </div>
+      )}
+
+      {/* Crop Protection Subtab */}
+      {agronomySubtab === "cp" && (
+        <CropProtProgramme key={"cp-"+progState.cp?.splits?.length||0} fields={fields} onBudget={(c,f,pd) => onBudget("cp",c,f,pd)} onHerbBudget={(c,f,pd) => onBudget("herb",c,f,pd)} saved={progState.cp} savedHerb={progState.herb} onSave={s => onProgSave("cp",s)} onHerbSave={s => onProgSave("herb",s)} jobs={jobs} setJobs={setJobs} />
+      )}
+
+      {/* Fertiliser Subtab */}
+      {agronomySubtab === "fert" && (
+        <FertProgramme key={"fe-"+progState.fert?.splits?.length||0} fields={fields} onBudget={(c,f,pd) => onBudget("fert",c,f,pd)} saved={progState.fert} onSave={s => onProgSave("fert",s)} jobs={jobs} setJobs={setJobs} progState={progState} />
+      )}
     </div>
   );
 };
@@ -6791,8 +6817,6 @@ function App() {
     {id: "farm", l: "Farm & Fields"},
     {id: "budget", l: "Finances"},
     {id: "map", l: "Map & Analysis"},
-    {id: "cp", l: "Crop Protection"},
-    {id: "fert", l: "Fertiliser"},
     {id: "ops", l: "Operations"},
     {id: "diary", l: "Activities"},
     {id: "agron", l: "Agronomy"},
@@ -6865,11 +6889,9 @@ function App() {
         <div style={{display: tab === "farm" ? "block" : "none"}}><FarmFields fields={fields} setFields={setFields} farm={af} setFarmName={setFarmName} setSbi={setSbi} setFarmProp={setFarmProp} budgets={budgets} advisorProfile={advisorProfile} updateAdvisor={updateAdvisor} /></div>
         <div style={{display: tab === "budget" ? "block" : "none"}}><BudgetTracker fields={fields} setFields={setFields} budgets={budgets} progState={progState} onSave={s => onProgSave("finance",s)} /></div>
         <div style={{display: tab === "map" ? "block" : "none"}}><FarmMap fields={fields} setFields={setFields} budgets={budgets} farmName={af.name} /></div>
-        <div style={{display: tab === "cp" ? "block" : "none"}}><CropProtProgramme key={"cp-"+loadKey+"-"+activeFarmId} fields={fields} onBudget={(c,f,pd) => onBudget("cp",c,f,pd)} onHerbBudget={(c,f,pd) => onBudget("herb",c,f,pd)} saved={progState.cp} savedHerb={progState.herb} onSave={s => onProgSave("cp",s)} onHerbSave={s => onProgSave("herb",s)} jobs={jobs} setJobs={setJobs} /></div>
-        <div style={{display: tab === "fert" ? "block" : "none"}}><FertProgramme key={"fe-"+loadKey+"-"+activeFarmId} fields={fields} onBudget={(c,f,pd) => onBudget("fert",c,f,pd)} saved={progState.fert} onSave={s => onProgSave("fert",s)} jobs={jobs} setJobs={setJobs} progState={progState} /></div>
         <div style={{display: tab === "ops" ? "block" : "none"}}><Operations key={"op-"+loadKey+"-"+activeFarmId} fields={fields} onBudget={(c,f,pd) => onBudget("ops",c,f,pd)} saved={progState.ops} onSave={s => onProgSave("ops",s)} /></div>
         <div style={{display: tab === "diary" ? "block" : "none"}}><FarmDiary key={"di-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.spray} onSave={s => onProgSave("spray",s)} jobs={jobs} setJobs={setJobs} /></div>
-        <div style={{display: tab === "agron" ? "block" : "none"}}><AgronomyTab key={"ag-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.agron} onSave={s => onProgSave("agron",s)} jobs={jobs} setJobs={setJobs} /></div>
+        <div style={{display: tab === "agron" ? "block" : "none"}}><AgronomyTab key={"ag-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.agron} onSave={s => onProgSave("agron",s)} jobs={jobs} setJobs={setJobs} onBudget={onBudget} onHerbBudget={(c,f,pd) => onBudget("herb",c,f,pd)} progState={progState} onProgSave={onProgSave} /></div>
         <div style={{display: tab === "livestock" ? "block" : "none"}}><LivestockTab key={"ls-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.livestock} onSave={s => onProgSave("livestock",s)} /></div>
         <div style={{display: tab === "seed" ? "block" : "none"}}><SeedCalc key={"sd-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.seed} onSave={s => onProgSave("seed",s)} /></div>
         <div style={{display: tab === "know" ? "block" : "none"}}><KnowledgeHub /></div>
