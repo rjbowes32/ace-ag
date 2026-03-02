@@ -4012,13 +4012,381 @@ const BudgetTracker = ({fields, setFields, budgets, progState, onSave}) => {
   );
 };
 
+// ─── AGRONOMY TAB ─────────────────────────────────────────────────────────
+const AgronomyTab = ({fields, saved, onSave, jobs, setJobs}) => {
+  const DTYPE = {id:"agron",label:"Agronomy",icon:"🔬",color:"#2c6e3f"};
+  const [records, setRecords] = useState(saved?.records || []);
+  const [editId, setEditId] = useState(null);
+  const [filterField, setFilterField] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [sortMode, setSortMode] = useState("recent");
+  const [viewMode, setViewMode] = useState("grid");
+
+  const GS = ["GS10-19 Seedling","GS20-29 Tillering","GS30 Stem ext.","GS31-32 1st-2nd node","GS33-37 Mid stem","GS39 Flag leaf","GS49-59 Booting/heading","GS61-69 Flowering","GS71-89 Grain fill","GS90+ Senescence"];
+
+  const DISEASES = [
+    "Septoria tritici","Yellow rust","Brown rust","Eyespot","Fusarium","Net blotch","Rhynchosporium",
+    "Ramularia","Powdery mildew","Light leaf spot","Phoma","Sclerotinia","Take-all","Sharp eyespot",
+    "BYDV (symptoms)","Tan spot","Crown rust","Halo spot","Snow mould",
+  ];
+  const SEVERITIES = ["nil","trace","low","moderate","high","severe"];
+  const PESTS = [
+    "Slugs","Aphids (BYDV vector)","Aphids (direct)","CSFB","Pollen beetle","OWBM",
+    "Leather jackets","Wireworm","Gout fly","Wheat bulb fly","Pigeons","Rabbits","Seed weevil",
+  ];
+  const PEST_LEVELS = ["nil","low","threshold","above threshold","high"];
+  const WEEDS = [
+    "Blackgrass","Ryegrass","Brome","Wild oats","Cleavers","Chickweed","Charlock",
+    "Poppy","Mayweed","Cranesbill","Volunteer cereals","Fat hen","Groundsel",
+    "Thistles","Couch","Volunteer OSR","Fumitory","Speedwell","Shepherd's purse",
+  ];
+  const WEED_DENS = ["nil","trace (<1/m²)","low (1-5/m²)","moderate (5-20/m²)","high (20-50/m²)","very high (50+/m²)"];
+
+  useEffect(() => { if(onSave) onSave({records}); }, [records]);
+
+  const mkRec = () => ({
+    id: Date.now(), type: "agron",
+    fieldIds: [], date: new Date().toISOString().split("T")[0],
+    inspector: "", cropCondition: "", growthStageAgron: "",
+    canopyDensity: "", plantHealth: "",
+    diseases: [], pests: [], weeds: [],
+    nRequired: "", pgrRequired: "", traceElement: "",
+    recommendation: "", nextVisit: "", priority: "routine",
+    attachments: [], pinned: false, operator: "", notes: "",
+  });
+
+  const addRec = () => { const r = mkRec(); setRecords(p => [r,...p]); setEditId(r.id); };
+  const addFromJob = (job) => {
+    const r = mkRec();
+    r.jobId = job.id;
+    r.fieldIds = [...(job.fieldIds || [])];
+    setRecords(p => [r,...p]);
+    setEditId(r.id);
+    if (setJobs) setJobs(prev => (prev||[]).map(j => j.id === job.id ? {...j, status: "in-progress"} : j));
+  };
+  const completeJob = (jobId) => {
+    if (setJobs) setJobs(prev => (prev||[]).map(j => j.id === jobId ? {...j, status: "completed"} : j));
+  };
+
+  const upRec = (id,f,v) => setRecords(p => p.map(r => r.id===id?{...r,[f]:v}:r));
+  const rmRec = id => { if(!confirm("Delete this record?")) return; setRecords(p => p.filter(r => r.id!==id)); if(editId===id) setEditId(null); };
+  const dupRec = id => { const src = records.find(r=>r.id===id); if(!src) return; const n = {...src,id:Date.now(),date:new Date().toISOString().split("T")[0],pinned:false}; setRecords(p=>[n,...p]); setEditId(n.id); };
+  const pinRec = id => setRecords(p => p.map(r => r.id===id ? {...r, pinned: !r.pinned} : r));
+
+  const filtered = records.filter(r => {
+    if (filterField !== "all" && !r.fieldIds.includes(+filterField)) return false;
+    if (filterDateFrom && r.date < filterDateFrom) return false;
+    if (filterDateTo && r.date > filterDateTo) return false;
+    return true;
+  }).sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    if (sortMode === "recent") return b.date.localeCompare(a.date) || b.id - a.id;
+    return a.date.localeCompare(b.date) || a.id - b.id;
+  });
+
+  const exportCSV = () => {
+    const hdr = "Date,Field(s),Inspector,Growth Stage,Condition,Canopy,Plant Health,Priority,Diseases,Pests,Weeds,N Required,PGR,Trace,Recommendation,Next Visit,Notes";
+    const rows = records.map(r => {
+      const fn = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name||"").join("; ");
+      const dis = (r.diseases||[]).filter(d=>d.sev&&d.sev!=="nil").map(d=>`${d.name}: ${d.sev}`).join("; ");
+      const pst = (r.pests||[]).filter(p=>p.level&&p.level!=="nil").map(p=>`${p.name}: ${p.level}`).join("; ");
+      const wds = (r.weeds||[]).filter(w=>w.density&&w.density!=="nil").map(w=>`${w.name}: ${w.density}`).join("; ");
+      return [r.date,fn,r.inspector,r.growthStageAgron,r.cropCondition,r.canopyDensity,r.plantHealth,r.priority,dis,pst,wds,r.nRequired,r.pgrRequired,r.traceElement,r.recommendation,r.nextVisit,r.notes];
+    }).map(r => r.map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(","));
+    const blob = new Blob([hdr+"\n"+rows.join("\n")], {type:"text/csv"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `agronomy-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+  };
+
+  const addAttachment = (recId, file) => {
+    if (!file) return;
+    const maxMB = 5;
+    if (file.size > maxMB * 1024 * 1024) { alert(`File too large (max ${maxMB}MB)`); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const att = {id: Date.now(), name: file.name, type: file.type, size: file.size, data: e.target.result, addedDate: new Date().toISOString().split("T")[0]};
+      setRecords(p => p.map(r => r.id === recId ? {...r, attachments: [...(r.attachments||[]), att]} : r));
+    };
+    reader.readAsDataURL(file);
+  };
+  const rmAttachment = (recId, attId) => {
+    setRecords(p => p.map(r => r.id === recId ? {...r, attachments: (r.attachments||[]).filter(a => a.id !== attId)} : r));
+  };
+  const viewAttachment = (att) => {
+    if (att.type === "application/pdf") {
+      const w = window.open("", "_blank");
+      if (w) { w.document.write(`<html><head><title>${att.name}</title></head><body style="margin:0"><iframe src="${att.data}" style="width:100%;height:100vh;border:none"></iframe></body></html>`); w.document.close(); }
+    } else {
+      const w = window.open("", "_blank");
+      if (w) { w.document.write(`<html><head><title>${att.name}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f0f0"><img src="${att.data}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`); w.document.close(); }
+    }
+  };
+
+  const FileAttach = ({rec, accept, label}) => (
+    <div style={{marginTop:4}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+        <label style={{padding:"4px 12px",fontSize:10,fontWeight:600,background:"#f0f2ee",color:"#4a7c59",borderRadius:6,cursor:"pointer",border:"1px dashed #c4cec4",display:"inline-flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:13}}>📎</span> {label || "Attach file"}
+          <input type="file" accept={accept || ".pdf,.png,.jpg,.jpeg,.gif,.webp"} onChange={e => {if(e.target.files[0]) addAttachment(rec.id, e.target.files[0]); e.target.value="";}} style={{display:"none"}} />
+        </label>
+        <span style={{fontSize:9,color:"#94a394"}}>PDF, images — max 5MB</span>
+      </div>
+      {(rec.attachments||[]).length > 0 && (
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+          {(rec.attachments||[]).map(att => {
+            const isPdf = att.type === "application/pdf";
+            const isImg = att.type?.startsWith("image/");
+            return (
+              <div key={att.id} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:isPdf?"#c0392b06":"#2c6e3f06",borderRadius:6,border:`1px solid ${isPdf?"#c0392b15":"#2c6e3f15"}`}}>
+                {isImg && <img src={att.data} style={{width:28,height:28,objectFit:"cover",borderRadius:4,cursor:"pointer"}} onClick={()=>viewAttachment(att)} />}
+                {isPdf && <span style={{fontSize:14,cursor:"pointer"}} onClick={()=>viewAttachment(att)}>📄</span>}
+                <div style={{cursor:"pointer"}} onClick={()=>viewAttachment(att)}>
+                  <div style={{fontSize:10,fontWeight:600,color:"#1a2e1a",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{att.name}</div>
+                  <div style={{fontSize:8,color:"#94a394"}}>{(att.size/1024).toFixed(0)}KB · {att.addedDate}</div>
+                </div>
+                <button onClick={()=>rmAttachment(rec.id,att.id)} style={{background:"none",border:"none",color:"#c0392b44",cursor:"pointer",fontSize:12,padding:"0 2px"}}>×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const FieldPicker = ({rec}) => (
+    <div>
+      <div style={{fontSize:9,color:"#6b7b6b",marginBottom:3}}>Fields:</div>
+      <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+        <button onClick={()=>upRec(rec.id,"fieldIds",rec.fieldIds.length===fields.length?[]:fields.map(f=>f.id))} style={{padding:"2px 8px",fontSize:9,borderRadius:5,border:"none",cursor:"pointer",background:rec.fieldIds.length===fields.length?"#2c6e3f15":"#f0f2ee",color:rec.fieldIds.length===fields.length?"#2c6e3f":"#94a394",fontWeight:600}}>All</button>
+        {fields.map(f => {
+          const sel = rec.fieldIds.includes(f.id);
+          return <button key={f.id} onClick={() => upRec(rec.id,"fieldIds",sel?rec.fieldIds.filter(x=>x!==f.id):[...rec.fieldIds,f.id])} style={{padding:"2px 8px",fontSize:10,fontWeight:sel?600:400,borderRadius:5,border:"none",cursor:"pointer",background:sel?f.color+"18":"#f0f2ee",color:sel?f.color:"#b4bab4"}}>{f.name}</button>;
+        })}
+      </div>
+    </div>
+  );
+
+  const renderForm = (r) => {
+    const lbl = (t) => ({fontSize:9,color:"#6b7b6b",marginBottom:2});
+    const inp = (val,fn,ph,w) => <input value={val||""} onChange={e=>upRec(r.id,fn,e.target.value)} placeholder={ph} style={{...TI,width:w||"100%",fontSize:11}} />;
+    const sel = (val,fn,opts) => <select value={val||""} onChange={e=>upRec(r.id,fn,e.target.value)} style={{...SS,width:"100%",fontSize:11}}>{opts.map(o => typeof o==="string"?<option key={o}>{o}</option>:<option key={o.v} value={o.v}>{o.l}</option>)}</select>;
+
+    const toggleItem = (field, name, key, val) => {
+      const arr = r[field] || [];
+      const idx = arr.findIndex(x => x.name === name);
+      if (idx >= 0) {
+        const updated = [...arr]; updated[idx] = {...updated[idx], [key]: val};
+        upRec(r.id, field, updated);
+      } else {
+        upRec(r.id, field, [...arr, {name, [key]: val}]);
+      }
+    };
+    const getItem = (field, name) => (r[field] || []).find(x => x.name === name);
+
+    const QuickGrid = ({items, field, levels, levelKey}) => (
+      <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+        {items.map(name => {
+          const it = getItem(field, name);
+          const val = it?.[levelKey] || "";
+          const active = val && val !== "nil";
+          return (
+            <div key={name} style={{display:"flex",alignItems:"center",gap:2,background:active?"#2c6e3f08":"#f7f8f6",borderRadius:6,padding:"2px 4px",border:`1px solid ${active?"#2c6e3f33":"#e2e6de"}`}}>
+              <span style={{fontSize:10,color:active?"#1a2e1a":"#94a394",fontWeight:active?600:400,minWidth:60}}>{name.length>18?name.slice(0,16)+"…":name}</span>
+              <select value={val} onChange={e => toggleItem(field, name, levelKey, e.target.value)} style={{...SS,fontSize:9,padding:"1px 2px",width:active?80:50,background:"transparent",border:"none",color:active?"#2c6e3f":"#b4bab4"}}>
+                <option value="">—</option>
+                {levels.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    return (
+      <div style={{marginTop:8}}>
+        {/* Row 1: date, inspector, GS, condition */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6,marginBottom:8}}>
+          <div><div style={lbl()}>Date</div><input type="date" value={r.date} onChange={e=>upRec(r.id,"date",e.target.value)} style={{...TI,width:"100%",fontSize:11}} /></div>
+          <div><div style={lbl()}>Inspector</div>{inp(r.inspector,"inspector","")}</div>
+          <div><div style={lbl()}>Growth stage</div>{sel(r.growthStageAgron||r.growthStage||"","growthStageAgron",["",... GS])}</div>
+          <div><div style={lbl()}>Crop condition</div>{sel(r.cropCondition,"cropCondition",["","Excellent","Good","Average","Poor","Very poor","Failed"])}</div>
+          <div><div style={lbl()}>Canopy</div>{sel(r.canopyDensity||"","canopyDensity",["","Thin","Patchy","Average","Dense","Very dense"])}</div>
+          <div><div style={lbl()}>Plant health</div>{sel(r.plantHealth||"","plantHealth",["","Healthy","Slight stress","Moderate stress","Severe stress"])}</div>
+          <div><div style={lbl()}>Priority</div>{sel(r.priority||"routine","priority",["routine","watch","action needed","urgent"])}</div>
+          <div><div style={lbl()}>Next visit</div><input type="date" value={r.nextVisit||""} onChange={e=>upRec(r.id,"nextVisit",e.target.value)} style={{...TI,width:"100%",fontSize:11}} /></div>
+        </div>
+
+        {/* Diseases */}
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#c17f24",textTransform:"uppercase",marginBottom:4}}>Diseases</div>
+          <QuickGrid items={DISEASES} field="diseases" levels={SEVERITIES} levelKey="sev" />
+        </div>
+
+        {/* Pests */}
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#c0392b",textTransform:"uppercase",marginBottom:4}}>Pests</div>
+          <QuickGrid items={PESTS} field="pests" levels={PEST_LEVELS} levelKey="level" />
+        </div>
+
+        {/* Weeds */}
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#3a8a6e",textTransform:"uppercase",marginBottom:4}}>Weeds</div>
+          <QuickGrid items={WEEDS} field="weeds" levels={WEED_DENS} levelKey="density" />
+        </div>
+
+        {/* Quick action row */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6,marginBottom:6}}>
+          <div><div style={lbl()}>N required?</div>{sel(r.nRequired||"","nRequired",["","Not yet","Yes — next split","Applied","Complete","N/A"])}</div>
+          <div><div style={lbl()}>PGR needed?</div>{sel(r.pgrRequired||"","pgrRequired",["","Not yet","Yes — soon","Applied","Not needed"])}</div>
+          <div><div style={lbl()}>Trace element</div>{sel(r.traceElement||"","traceElement",["","None needed","Mn deficient","Mg deficient","S deficient","Multi-trace needed","Applied"])}</div>
+        </div>
+
+        {/* Recommendation */}
+        <div style={{marginBottom:6}}>
+          <div style={lbl()}>Recommendation</div>
+          <textarea value={r.recommendation||""} onChange={e=>upRec(r.id,"recommendation",e.target.value)} placeholder="Products, rates, timing, conditions to wait for..." rows={3} style={{...TI,width:"100%",fontSize:11,resize:"vertical",background:"#fffdf5",borderLeft:"3px solid #2c6e3f",padding:"8px 10px"}} />
+        </div>
+
+        {/* Notes + fields */}
+        <div style={{marginBottom:6}}><div style={lbl()}>Notes</div>{inp(r.notes,"notes","Photos, tissue test results, lodging risk...")}</div>
+        <FileAttach rec={r} accept=".pdf,.png,.jpg,.jpeg" label="Attach photos/notes" />
+        <FieldPicker rec={r} />
+      </div>
+    );
+  };
+
+  const summaryLine = (r) => {
+    const dCount = (r.diseases||[]).filter(d=>d.sev&&d.sev!=="nil").length;
+    const pCount = (r.pests||[]).filter(p=>p.level&&p.level!=="nil").length;
+    const wCount = (r.weeds||[]).filter(w=>w.density&&w.density!=="nil").length;
+    const badges = [];
+    if (dCount) badges.push(`${dCount} disease${dCount>1?"s":""}`);
+    if (pCount) badges.push(`${pCount} pest${pCount>1?"s":""}`);
+    if (wCount) badges.push(`${wCount} weed${wCount>1?"s":""}`);
+    return <><span style={{fontWeight:700,color:"#2c6e3f"}}>{r.growthStageAgron||r.cropCondition||"Inspection"}</span> <span style={{color:"#6b7b6b"}}>{r.inspector}{badges.length?` · ${badges.join(", ")}`:""}</span>{r.priority==="urgent"&&<span style={{fontSize:9,color:"#c0392b",fontWeight:700,marginLeft:4}}>URGENT</span>}{r.priority==="action needed"&&<span style={{fontSize:9,color:"#c17f24",fontWeight:700,marginLeft:4}}>ACTION</span>}</>;
+  };
+
+  return (
+    <div>
+      {/* Pending Jobs */}
+      {(() => {
+        const pendingJobs = (jobs||[]).filter(j => j.status !== "completed" && j.type === "agron");
+        if (pendingJobs.length === 0) return null;
+        return (
+          <div style={{background:"#fffdf5",border:"1px solid #c17f2422",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#c17f24",textTransform:"uppercase"}}>Pending Jobs ({pendingJobs.length})</div>
+              <div style={{fontSize:9,color:"#94a394"}}>Created from programmes. Click to start recording.</div>
+            </div>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {pendingJobs.map(j => {
+                const fCount = (j.fieldIds||[]).length;
+                const fNames = (j.fieldIds||[]).slice(0,3).map(fid => fields.find(f=>f.id===fid)?.name||"").filter(Boolean).join(", ");
+                const statusCol = j.status==="in-progress"?"#2c6e3f":"#c17f24";
+                return (
+                  <div key={j.id} style={{position:"relative",display:"inline-block"}}>
+                    <button onClick={() => addFromJob(j)}
+                      style={{padding:"6px 12px",fontSize:10,borderRadius:8,border:`1px solid ${statusCol}22`,cursor:"pointer",textAlign:"left",
+                        background:j.status==="in-progress"?"#2c6e3f08":"#fff",color:"#1a2e1a",maxWidth:280}}>
+                      <div style={{fontWeight:700,fontSize:11,color:statusCol,marginBottom:2}}>{j.label}</div>
+                      <div style={{fontSize:9,color:"#6b7b6b"}}>{j.description?.slice(0,60)}{j.description?.length>60?"…":""}</div>
+                      <div style={{fontSize:9,color:"#94a394",marginTop:1}}>{fCount} field{fCount!==1?"s":""}{fNames?` · ${fNames}`:""}{fCount>3?"…":""}</div>
+                      {j.status==="in-progress" && <div style={{fontSize:8,color:"#2c6e3f",fontWeight:700,marginTop:2}}>IN PROGRESS</div>}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete this pending job?")) setJobs(prev => (prev||[]).filter(job => job.id !== j.id)); }}
+                      style={{position:"absolute",top:-2,right:-2,width:24,height:24,padding:0,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",cursor:"pointer",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Toolbar */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+        <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+          <select value={filterField} onChange={e=>setFilterField(e.target.value)} style={{...SS,fontSize:10,width:140}}>
+            <option value="all">All fields</option>
+            {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <input type="date" value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
+          <span style={{fontSize:10,color:"#94a394"}}>to</span>
+          <input type="date" value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)} style={{...TI,fontSize:10,width:110,padding:"3px 6px"}} />
+          {(filterField!=="all"||filterDateFrom||filterDateTo) && <button onClick={()=>{setFilterField("all");setFilterDateFrom("");setFilterDateTo("");}} style={{fontSize:10,color:"#c0392b55",background:"none",border:"none",cursor:"pointer"}}>Clear filters</button>}
+        </div>
+        <div style={{display:"flex",gap:4}}>
+          <select value={sortMode} onChange={e=>setSortMode(e.target.value)} style={{...SS,fontSize:10,width:90}}>
+            <option value="recent">Newest</option><option value="oldest">Oldest</option>
+          </select>
+          <button onClick={()=>setViewMode(v=>v==="grid"?"list":"grid")} style={{padding:"4px 10px",fontSize:10,background:viewMode==="grid"?"#2c6e3f10":"#f0f2ee",color:"#6b7b6b",border:"1px solid #e2e6de",borderRadius:6,cursor:"pointer"}}>{viewMode==="grid"?"▦ Grid":"☰ List"}</button>
+          <button onClick={addRec} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color,color:"#fff",border:"none",borderRadius:8,cursor:"pointer"}}>+ New {DTYPE.label}</button>
+          {filtered.length > 0 && <button onClick={exportCSV} style={{padding:"6px 14px",fontSize:11,fontWeight:600,background:DTYPE.color+"0a",color:DTYPE.color,border:"none",borderRadius:8,cursor:"pointer"}}>Export CSV</button>}
+        </div>
+      </div>
+
+      {/* Records */}
+      <div style={viewMode==="grid" ? {display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8} : {}}>
+      {filtered.map(r => {
+        const isOpen = editId === r.id;
+        const fNames = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name || "").filter(Boolean).join(", ");
+        if (viewMode==="grid" && !isOpen) {
+          return (
+            <div key={r.id} onClick={()=>setEditId(r.id)} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:12,padding:"10px 12px",cursor:"pointer",transition:"all 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",borderTop:`3px solid ${DTYPE.color}`,position:"relative",minHeight:80}}>
+              {r.pinned && <span style={{position:"absolute",top:4,right:6,fontSize:12}}>📌</span>}
+              <div style={{fontSize:11,fontWeight:600,color:"#1a2e1a",marginBottom:3}}>{r.date}</div>
+              <div style={{fontSize:12,marginBottom:4}}>{summaryLine(r)}</div>
+              {fNames && <div style={{fontSize:9,color:"#94a394",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</div>}
+              {r.notes && <div style={{fontSize:9,color:"#6b7b6b",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{r.notes}</div>}
+              {(r.attachments||[]).length>0 && <span style={{fontSize:9,color:"#4a7c59"}}>📎 {r.attachments.length}</span>}
+            </div>
+          );
+        }
+        return (
+          <div key={r.id} style={{background:r.pinned?"#fffdf5":"#fff",border:`1px solid ${r.pinned?"#c17f2433":"#e2e6de"}`,borderRadius:10,padding:isOpen?"14px":"8px 14px",marginBottom:viewMode==="grid"?0:4,boxShadow:"0 1px 2px rgba(0,0,0,0.03)",borderLeft:`3px solid ${DTYPE.color}`,transition:"padding 0.15s",gridColumn:isOpen&&viewMode==="grid"?"1 / -1":"auto"}}>
+            <div onClick={()=>setEditId(isOpen?null:r.id)} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",flexWrap:"wrap"}}>
+              {r.pinned && <span style={{fontSize:11}}>📌</span>}
+              <span style={{fontSize:12,fontWeight:600,color:"#1a2e1a",minWidth:80}}>{r.date}</span>
+              <span style={{flex:"1 1 auto",fontSize:12}}>{summaryLine(r)}</span>
+              <span style={{fontSize:10,color:"#94a394",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fNames}</span>
+              <span style={{fontSize:10,color:"#d4dace"}}>{isOpen?"▼":"▶"}</span>
+            </div>
+            {isOpen && (
+              <div>
+                {renderForm(r)}
+                <div style={{display:"flex",gap:4,marginTop:8,borderTop:"1px solid #f0f2ee",paddingTop:6,flexWrap:"wrap",alignItems:"center"}}>
+                  <button onClick={(e)=>{e.stopPropagation();pinRec(r.id);}} style={{padding:"4px 10px",fontSize:10,background:r.pinned?"#c17f2410":"#f0f2ee",color:r.pinned?"#c17f24":"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer"}}>{r.pinned?"📌 Unpin":"📌 Pin"}</button>
+                  {r.jobId && (() => {
+                    const job = (jobs||[]).find(j => j.id === r.jobId);
+                    const done = job?.status === "completed";
+                    return (
+                      <button onClick={() => { if(!done) completeJob(r.jobId); }} style={{padding:"4px 12px",fontSize:10,fontWeight:700,background:done?"#2c6e3f10":"#2c6e3f",color:done?"#2c6e3f":"#fff",border:"none",borderRadius:6,cursor:done?"default":"pointer"}}>
+                        {done ? "✓ Job Complete" : "Mark Job Complete"}
+                      </button>
+                    );
+                  })()}
+                  {r.jobId && <span style={{fontSize:9,color:"#94a394"}}>From: {(jobs||[]).find(j=>j.id===r.jobId)?.label || "Job"}</span>}
+                  <button onClick={()=>dupRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"#f0f2ee",color:"#6b7b6b",border:"none",borderRadius:6,cursor:"pointer",marginLeft:r.jobId?"auto":0}}>Duplicate</button>
+                  <button onClick={()=>rmRec(r.id)} style={{padding:"4px 10px",fontSize:10,background:"none",color:"#c0392b55",border:"none",borderRadius:6,cursor:"pointer"}}>Delete</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      </div>
+      {filtered.length === 0 && <div style={{padding:24,textAlign:"center",color:"#94a394",fontSize:12}}>No agronomy records{filterField!=="all"||filterDateFrom?" matching filters":""}. Click "+ New Agronomy" to start.</div>}
+    </div>
+  );
+};
+
 // ─── FARM DIARY ───────────────────────────────────────────────────────────
 const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
   const DTYPES = [
     {id:"spray",label:"Spraying",icon:"🧪",color:"#c17f24"},
     {id:"fert",label:"Fertiliser",icon:"🌱",color:"#4a7c59"},
     {id:"ops",label:"Operations",icon:"🚜",color:"#b8922a"},
-    {id:"agron",label:"Agronomy",icon:"🔬",color:"#2c6e3f"},
     {id:"notes",label:"Field Notes",icon:"📝",color:"#6b7b6b"},
     {id:"tsum",label:"T-Sum",icon:"🌡️",color:"#a63d2b"},
   ];
@@ -4046,12 +4414,6 @@ const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
     fertProduct: "", fertGrade: "", fertRate: "", fertUnit: "kg/ha", fertMethod: "spreader",
     // Ops fields
     opsType: "", opsDetail: "", opsCost: "", opsConditions: "good", opsDepth: "", opsSpeed: "",
-    // Agronomy fields — structured
-    inspector: "", cropCondition: "", growthStageAgron: "",
-    canopyDensity: "", plantHealth: "", rootHealth: "",
-    diseases: [], pests: [], weeds: [],
-    nRequired: "", pgrRequired: "", traceElement: "",
-    recommendation: "", nextVisit: "", priority: "routine",
     // Notes
     noteTitle: "", noteText: "",
     // Attachments (base64 data URLs)
@@ -4134,15 +4496,6 @@ const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
       rowFn = r => {
         const fn = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name||"").join("; ");
         return [r.date,fn,r.opsType,r.opsDetail,r.opsCost,r.operator,r.notes];
-      };
-    } else if (diaryTab === "agron") {
-      hdr = "Date,Field(s),Inspector,Growth Stage,Condition,Canopy,Plant Health,Priority,Diseases,Pests,Weeds,N Required,PGR,Trace,Recommendation,Next Visit,Notes";
-      rowFn = r => {
-        const fn = r.fieldIds.map(fid => fields.find(f=>f.id===fid)?.name||"").join("; ");
-        const dis = (r.diseases||[]).filter(d=>d.sev&&d.sev!=="nil").map(d=>`${d.name}: ${d.sev}`).join("; ");
-        const pst = (r.pests||[]).filter(p=>p.level&&p.level!=="nil").map(p=>`${p.name}: ${p.level}`).join("; ");
-        const wds = (r.weeds||[]).filter(w=>w.density&&w.density!=="nil").map(w=>`${w.name}: ${w.density}`).join("; ");
-        return [r.date,fn,r.inspector,r.growthStageAgron||r.growthStage,r.cropCondition,r.canopyDensity,r.plantHealth,r.priority,dis,pst,wds,r.nRequired,r.pgrRequired,r.traceElement,r.recommendation,r.nextVisit,r.notes];
       };
     } else {
       hdr = "Date,Field(s),Title,Note";
@@ -4309,109 +4662,6 @@ const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
         </div>
       );
     }
-    if (diaryTab === "agron") {
-      // Structured disease/pest/weed pickers
-      const DISEASES = [
-        "Septoria tritici","Yellow rust","Brown rust","Eyespot","Fusarium","Net blotch","Rhynchosporium",
-        "Ramularia","Powdery mildew","Light leaf spot","Phoma","Sclerotinia","Take-all","Sharp eyespot",
-        "BYDV (symptoms)","Tan spot","Crown rust","Halo spot","Snow mould",
-      ];
-      const SEVERITIES = ["nil","trace","low","moderate","high","severe"];
-      const PESTS = [
-        "Slugs","Aphids (BYDV vector)","Aphids (direct)","CSFB","Pollen beetle","OWBM",
-        "Leather jackets","Wireworm","Gout fly","Wheat bulb fly","Pigeons","Rabbits","Seed weevil",
-      ];
-      const PEST_LEVELS = ["nil","low","threshold","above threshold","high"];
-      const WEEDS = [
-        "Blackgrass","Ryegrass","Brome","Wild oats","Cleavers","Chickweed","Charlock",
-        "Poppy","Mayweed","Cranesbill","Volunteer cereals","Fat hen","Groundsel",
-        "Thistles","Couch","Volunteer OSR","Fumitory","Speedwell","Shepherd's purse",
-      ];
-      const WEED_DENS = ["nil","trace (<1/m²)","low (1-5/m²)","moderate (5-20/m²)","high (20-50/m²)","very high (50+/m²)"];
-
-      const toggleItem = (field, name, key, val) => {
-        const arr = r[field] || [];
-        const idx = arr.findIndex(x => x.name === name);
-        if (idx >= 0) {
-          const updated = [...arr]; updated[idx] = {...updated[idx], [key]: val};
-          upRec(r.id, field, updated);
-        } else {
-          upRec(r.id, field, [...arr, {name, [key]: val}]);
-        }
-      };
-      const getItem = (field, name) => (r[field] || []).find(x => x.name === name);
-      const anySet = (field, name) => { const it = getItem(field, name); return it && ((it.sev && it.sev !== "nil") || (it.level && it.level !== "nil") || (it.density && it.density !== "nil")); };
-
-      const QuickGrid = ({items, field, levels, levelKey}) => (
-        <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-          {items.map(name => {
-            const it = getItem(field, name);
-            const val = it?.[levelKey] || "";
-            const active = val && val !== "nil";
-            return (
-              <div key={name} style={{display:"flex",alignItems:"center",gap:2,background:active?"#2c6e3f08":"#f7f8f6",borderRadius:6,padding:"2px 4px",border:`1px solid ${active?"#2c6e3f33":"#e2e6de"}`}}>
-                <span style={{fontSize:10,color:active?"#1a2e1a":"#94a394",fontWeight:active?600:400,minWidth:60}}>{name.length>18?name.slice(0,16)+"…":name}</span>
-                <select value={val} onChange={e => toggleItem(field, name, levelKey, e.target.value)} style={{...SS,fontSize:9,padding:"1px 2px",width:active?80:50,background:"transparent",border:"none",color:active?"#2c6e3f":"#b4bab4"}}>
-                  <option value="">—</option>
-                  {levels.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-            );
-          })}
-        </div>
-      );
-
-      return (
-        <div style={{marginTop:8}}>
-          {/* Row 1: date, inspector, GS, condition */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6,marginBottom:8}}>
-            <div><div style={lbl()}>Date</div><input type="date" value={r.date} onChange={e=>upRec(r.id,"date",e.target.value)} style={{...TI,width:"100%",fontSize:11}} /></div>
-            <div><div style={lbl()}>Inspector</div>{inp(r.inspector,"inspector","")}</div>
-            <div><div style={lbl()}>Growth stage</div>{sel(r.growthStageAgron||r.growthStage||"","growthStageAgron",["",... GS])}</div>
-            <div><div style={lbl()}>Crop condition</div>{sel(r.cropCondition,"cropCondition",["","Excellent","Good","Average","Poor","Very poor","Failed"])}</div>
-            <div><div style={lbl()}>Canopy</div>{sel(r.canopyDensity||"","canopyDensity",["","Thin","Patchy","Average","Dense","Very dense"])}</div>
-            <div><div style={lbl()}>Plant health</div>{sel(r.plantHealth||"","plantHealth",["","Healthy","Slight stress","Moderate stress","Severe stress"])}</div>
-            <div><div style={lbl()}>Priority</div>{sel(r.priority||"routine","priority",["routine","watch","action needed","urgent"])}</div>
-            <div><div style={lbl()}>Next visit</div><input type="date" value={r.nextVisit||""} onChange={e=>upRec(r.id,"nextVisit",e.target.value)} style={{...TI,width:"100%",fontSize:11}} /></div>
-          </div>
-
-          {/* Diseases — quick tap grid */}
-          <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#c17f24",textTransform:"uppercase",marginBottom:4}}>Diseases</div>
-            <QuickGrid items={DISEASES} field="diseases" levels={SEVERITIES} levelKey="sev" />
-          </div>
-
-          {/* Pests */}
-          <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#c0392b",textTransform:"uppercase",marginBottom:4}}>Pests</div>
-            <QuickGrid items={PESTS} field="pests" levels={PEST_LEVELS} levelKey="level" />
-          </div>
-
-          {/* Weeds */}
-          <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#3a8a6e",textTransform:"uppercase",marginBottom:4}}>Weeds</div>
-            <QuickGrid items={WEEDS} field="weeds" levels={WEED_DENS} levelKey="density" />
-          </div>
-
-          {/* Quick action row */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6,marginBottom:6}}>
-            <div><div style={lbl()}>N required?</div>{sel(r.nRequired||"","nRequired",["","Not yet","Yes — next split","Applied","Complete","N/A"])}</div>
-            <div><div style={lbl()}>PGR needed?</div>{sel(r.pgrRequired||"","pgrRequired",["","Not yet","Yes — soon","Applied","Not needed"])}</div>
-            <div><div style={lbl()}>Trace element</div>{sel(r.traceElement||"","traceElement",["","None needed","Mn deficient","Mg deficient","S deficient","Multi-trace needed","Applied"])}</div>
-          </div>
-
-          {/* Recommendation — the one text area */}
-          <div style={{marginBottom:6}}>
-            <div style={lbl()}>Recommendation</div>
-            <textarea value={r.recommendation||""} onChange={e=>upRec(r.id,"recommendation",e.target.value)} placeholder="Products, rates, timing, conditions to wait for..." rows={3} style={{...TI,width:"100%",fontSize:11,resize:"vertical",background:"#fffdf5",borderLeft:"3px solid #2c6e3f",padding:"8px 10px"}} />
-          </div>
-
-          {/* Notes + fields */}
-          <div style={{marginBottom:6}}><div style={lbl()}>Notes</div>{inp(r.notes,"notes","Photos, tissue test results, lodging risk...")}</div>
-          <FieldPicker rec={r} />
-        </div>
-      );
-    }
     // Notes
     return (
       <div style={grid}>
@@ -4429,16 +4679,6 @@ const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
     if (r.type === "spray") return <><span style={{fontWeight:700,color:"#c17f24"}}>{r.product || "—"}</span> <span style={{color:"#6b7b6b"}}>{r.rate} {r.unit}</span>{(r.attachments||[]).length>0&&<span style={{fontSize:9,color:"#4a7c59",marginLeft:4}}>📎{r.attachments.length}</span>}</>;
     if (r.type === "fert") return <><span style={{fontWeight:700,color:"#4a7c59"}}>{r.fertProduct || "—"}</span> <span style={{color:"#6b7b6b"}}>{r.fertRate} {r.fertUnit} {r.fertGrade}</span>{(r.attachments||[]).length>0&&<span style={{fontSize:9,color:"#4a7c59",marginLeft:4}}>📎{r.attachments.length}</span>}</>;
     if (r.type === "ops") return <><span style={{fontWeight:700,color:"#b8922a"}}>{r.opsType || "—"}</span> <span style={{color:"#6b7b6b"}}>{r.opsDetail}{r.opsCost?` · £${r.opsCost}/ha`:""}</span></>;
-    if (r.type === "agron") {
-      const dCount = (r.diseases||[]).filter(d=>d.sev&&d.sev!=="nil").length;
-      const pCount = (r.pests||[]).filter(p=>p.level&&p.level!=="nil").length;
-      const wCount = (r.weeds||[]).filter(w=>w.density&&w.density!=="nil").length;
-      const badges = [];
-      if (dCount) badges.push(`${dCount} disease${dCount>1?"s":""}`);
-      if (pCount) badges.push(`${pCount} pest${pCount>1?"s":""}`);
-      if (wCount) badges.push(`${wCount} weed${wCount>1?"s":""}`);
-      return <><span style={{fontWeight:700,color:"#2c6e3f"}}>{r.growthStageAgron||r.cropCondition||"Inspection"}</span> <span style={{color:"#6b7b6b"}}>{r.inspector}{badges.length?` · ${badges.join(", ")}`:""}</span>{r.priority==="urgent"&&<span style={{fontSize:9,color:"#c0392b",fontWeight:700,marginLeft:4}}>URGENT</span>}{r.priority==="action needed"&&<span style={{fontSize:9,color:"#c17f24",fontWeight:700,marginLeft:4}}>ACTION</span>}</>;
-    }
     return <><span style={{fontWeight:700,color:"#6b7b6b"}}>{r.noteTitle || "Note"}</span></>;
   };
 
@@ -6555,6 +6795,7 @@ function App() {
     {id: "fert", l: "Fertiliser"},
     {id: "ops", l: "Operations"},
     {id: "diary", l: "Activities"},
+    {id: "agron", l: "Agronomy"},
     {id: "livestock", l: "Livestock"},
     {id: "seed", l: "Seed"},
     {id: "know", l: "Knowledge Hub"},
@@ -6628,6 +6869,7 @@ function App() {
         <div style={{display: tab === "fert" ? "block" : "none"}}><FertProgramme key={"fe-"+loadKey+"-"+activeFarmId} fields={fields} onBudget={(c,f,pd) => onBudget("fert",c,f,pd)} saved={progState.fert} onSave={s => onProgSave("fert",s)} jobs={jobs} setJobs={setJobs} progState={progState} /></div>
         <div style={{display: tab === "ops" ? "block" : "none"}}><Operations key={"op-"+loadKey+"-"+activeFarmId} fields={fields} onBudget={(c,f,pd) => onBudget("ops",c,f,pd)} saved={progState.ops} onSave={s => onProgSave("ops",s)} /></div>
         <div style={{display: tab === "diary" ? "block" : "none"}}><FarmDiary key={"di-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.spray} onSave={s => onProgSave("spray",s)} jobs={jobs} setJobs={setJobs} /></div>
+        <div style={{display: tab === "agron" ? "block" : "none"}}><AgronomyTab key={"ag-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.agron} onSave={s => onProgSave("agron",s)} jobs={jobs} setJobs={setJobs} /></div>
         <div style={{display: tab === "livestock" ? "block" : "none"}}><LivestockTab key={"ls-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.livestock} onSave={s => onProgSave("livestock",s)} /></div>
         <div style={{display: tab === "seed" ? "block" : "none"}}><SeedCalc key={"sd-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.seed} onSave={s => onProgSave("seed",s)} /></div>
         <div style={{display: tab === "know" ? "block" : "none"}}><KnowledgeHub /></div>
