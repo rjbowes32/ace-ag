@@ -1571,6 +1571,9 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
   const [ccUseRB209, setCcUseRB209] = useState(false);
   const [ccProducts, setCcProducts] = useState([]);
   const [ccFieldHa, setCcFieldHa] = useState(1);
+  const [ccCustomSolid, setCcCustomSolid] = useState(null);
+  const [ccCustomLiquid, setCcCustomLiquid] = useState(null);
+  const [ccCustomManure, setCcCustomManure] = useState(null);
   useEffect(() => { if(onSave) onSave({splits,taggedFields,crop,sns,pIdx,kIdx,sStat,fieldHa,favFerts,favManures}); }, [splits,taggedFields,crop,sns,pIdx,kIdx,sStat,fieldHa,favFerts,favManures]);
 
   const addSplit = () => setSplits(s => [...s, {id:Date.now(),label:`Split ${s.length+1}`,items:[],completedDate:""}]);
@@ -1803,7 +1806,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
       const nutVal = prod[ccNutrient]||0;
       if(nutVal>0) {
         const rateNeeded = ccNutrientAmount/(nutVal*10);
-        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"solid_fert",rate:rateNeeded,price:0}]);
+        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"solid_fert",rate:rateNeeded,price:0,sg:0}]);
       }
     }
   };
@@ -1814,7 +1817,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
       const nutVal = prod[ccNutrient]||0;
       if(nutVal>0) {
         const rateNeeded = ccNutrientAmount/(nutVal*10);
-        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"liquid_fert",rate:rateNeeded,price:0}]);
+        setCcProducts(p=>[...p,{id:Date.now(),productId:prod.id,productName:prod.name,category:"liquid_fert",rate:rateNeeded,price:0,sg:prod.sg||1.2}]);
       }
     }
   };
@@ -1825,7 +1828,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
       const nutVal = ccNutrient==="N"?manure.nTotal:ccNutrient==="P"?manure.p2o5:ccNutrient==="K"?manure.k2o:manure.so3||0;
       if(nutVal>0) {
         const rateNeeded = ccNutrientAmount/nutVal;
-        setCcProducts(p=>[...p,{id:Date.now(),productId:manure.id,productName:manure.name,category:"organic",rate:rateNeeded,price:0}]);
+        setCcProducts(p=>[...p,{id:Date.now(),productId:manure.id,productName:manure.name,category:"organic",rate:rateNeeded,price:0,sg:0}]);
       }
     }
   };
@@ -1836,6 +1839,30 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
 
   const removeProduct = (productId) => {
     setCcProducts(p=>p.filter(x=>x.id!==productId));
+  };
+
+  const addCustomSolidProduct = (name, nutVal) => {
+    if(name && nutVal>0) {
+      const rateNeeded = ccNutrientAmount/(nutVal*10);
+      setCcProducts(p=>[...p,{id:Date.now(),productId:"custom",productName:name,category:"solid_fert",rate:rateNeeded,price:0,sg:0,customNutrient:nutVal}]);
+      setCcCustomSolid(null);
+    }
+  };
+
+  const addCustomLiquidProduct = (name, nutVal, sg) => {
+    if(name && nutVal>0 && sg>0) {
+      const rateNeeded = ccNutrientAmount/(nutVal*10);
+      setCcProducts(p=>[...p,{id:Date.now(),productId:"custom",productName:name,category:"liquid_fert",rate:rateNeeded,price:0,sg:sg,customNutrient:nutVal}]);
+      setCcCustomLiquid(null);
+    }
+  };
+
+  const addCustomManureProduct = (name, nutVal) => {
+    if(name && nutVal>0) {
+      const rateNeeded = ccNutrientAmount/nutVal;
+      setCcProducts(p=>[...p,{id:Date.now(),productId:"custom",productName:name,category:"organic",rate:rateNeeded,price:0,sg:0,customNutrient:nutVal}]);
+      setCcCustomManure(null);
+    }
   };
 
   return (<div>
@@ -2047,19 +2074,22 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
             {/* Solid Products */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#2c6e3f",marginBottom:6}}>🟫 Solid Products</div>
-              <select onChange={e=>{if(e.target.value){addSolidProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add solid product...</option>{FERT_CATALOGUE.filter(p=>!p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+              <select onChange={e=>{if(e.target.value){if(e.target.value==="custom"){setCcCustomSolid({name:"",nutrient:0});}else{addSolidProduct(e.target.value);}e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add solid product...</option>{FERT_CATALOGUE.filter(p=>!p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}<option value="custom">+ Create custom...</option></select>
+              {ccCustomSolid && <div style={{marginTop:6,padding:8,background:"#f0f2ee",borderRadius:6}}><div style={{fontSize:9,color:"#6b7b6b",marginBottom:4}}>Custom solid product</div><input type="text" placeholder="Product name" value={ccCustomSolid.name} onChange={e=>setCcCustomSolid({...ccCustomSolid,name:e.target.value})} style={{...TI,marginBottom:4,fontSize:10,width:"100%"}} /><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Nutrient % ({ccNutrient})</div><input type="number" placeholder="0" value={ccCustomSolid.nutrient} onChange={e=>setCcCustomSolid({...ccCustomSolid,nutrient:parseFloat(e.target.value)||0})} style={{...TI,width:"100%",fontSize:10,marginBottom:6}} /><div style={{display:"flex",gap:4}}><button onClick={()=>addCustomSolidProduct(ccCustomSolid.name,ccCustomSolid.nutrient)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#2c6e3f",color:"#fff",border:"none",borderRadius:4,cursor:"pointer"}}>Add</button><button onClick={()=>setCcCustomSolid(null)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#d4dace",color:"#1a2e1a",border:"none",borderRadius:4,cursor:"pointer"}}>Cancel</button></div></div>}
             </div>
             
             {/* Liquid Products */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#4a7c59",marginBottom:6}}>💧 Liquid Products</div>
-              <select onChange={e=>{if(e.target.value){addLiquidProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add liquid product...</option>{FERT_CATALOGUE.filter(p=>p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}</select>
+              <select onChange={e=>{if(e.target.value){if(e.target.value==="custom"){setCcCustomLiquid({name:"",nutrient:0,sg:1.2});}else{addLiquidProduct(e.target.value);}e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add liquid product...</option>{FERT_CATALOGUE.filter(p=>p.isLiquid).map(p=>(<option key={p.id} value={p.id}>{p.name} ({p.grade})</option>))}<option value="custom">+ Create custom...</option></select>
+              {ccCustomLiquid && <div style={{marginTop:6,padding:8,background:"#f0f2ee",borderRadius:6}}><div style={{fontSize:9,color:"#6b7b6b",marginBottom:4}}>Custom liquid product</div><input type="text" placeholder="Product name" value={ccCustomLiquid.name} onChange={e=>setCcCustomLiquid({...ccCustomLiquid,name:e.target.value})} style={{...TI,marginBottom:4,fontSize:10,width:"100%"}} /><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Nutrient % ({ccNutrient})</div><input type="number" placeholder="0" value={ccCustomLiquid.nutrient} onChange={e=>setCcCustomLiquid({...ccCustomLiquid,nutrient:parseFloat(e.target.value)||0})} style={{...TI,width:"100%",fontSize:10,marginBottom:4}} /><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Specific Gravity (SG)</div><input type="number" placeholder="1.2" value={ccCustomLiquid.sg} onChange={e=>setCcCustomLiquid({...ccCustomLiquid,sg:parseFloat(e.target.value)||1.2})} style={{...TI,width:"100%",fontSize:10,marginBottom:6}} /><div style={{display:"flex",gap:4}}><button onClick={()=>addCustomLiquidProduct(ccCustomLiquid.name,ccCustomLiquid.nutrient,ccCustomLiquid.sg)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#2c6e3f",color:"#fff",border:"none",borderRadius:4,cursor:"pointer"}}>Add</button><button onClick={()=>setCcCustomLiquid(null)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#d4dace",color:"#1a2e1a",border:"none",borderRadius:4,cursor:"pointer"}}>Cancel</button></div></div>}
             </div>
             
             {/* Organic Manures */}
             <div style={{flex:"1 1 200px",minWidth:200}}>
               <div style={{fontSize:10,fontWeight:700,color:"#6b5b7b",marginBottom:6}}>🌱 Organic Manures</div>
-              <select onChange={e=>{if(e.target.value){addManureProduct(e.target.value);e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add manure...</option>{MANURE_CATALOGUE.map(m=>(<option key={m.id} value={m.id}>{m.name}</option>))}</select>
+              <select onChange={e=>{if(e.target.value){if(e.target.value==="custom"){setCcCustomManure({name:"",nutrient:0});}else{addManureProduct(e.target.value);}e.target.value="";}}} style={{...SS,fontSize:10,width:"100%",background:"#fff"}}><option value="">+ Add manure...</option>{MANURE_CATALOGUE.map(m=>(<option key={m.id} value={m.id}>{m.name}</option>))}<option value="custom">+ Create custom...</option></select>
+              {ccCustomManure && <div style={{marginTop:6,padding:8,background:"#f0f2ee",borderRadius:6}}><div style={{fontSize:9,color:"#6b7b6b",marginBottom:4}}>Custom organic product</div><input type="text" placeholder="Product name" value={ccCustomManure.name} onChange={e=>setCcCustomManure({...ccCustomManure,name:e.target.value})} style={{...TI,marginBottom:4,fontSize:10,width:"100%"}} /><div style={{fontSize:9,color:"#6b7b6b",marginBottom:2}}>Nutrient content ({ccNutrient})</div><input type="number" placeholder="0" value={ccCustomManure.nutrient} onChange={e=>setCcCustomManure({...ccCustomManure,nutrient:parseFloat(e.target.value)||0})} style={{...TI,width:"100%",fontSize:10,marginBottom:6}} /><div style={{display:"flex",gap:4}}><button onClick={()=>addCustomManureProduct(ccCustomManure.name,ccCustomManure.nutrient)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#2c6e3f",color:"#fff",border:"none",borderRadius:4,cursor:"pointer"}}>Add</button><button onClick={()=>setCcCustomManure(null)} style={{flex:1,padding:"4px 8px",fontSize:10,fontWeight:700,background:"#d4dace",color:"#1a2e1a",border:"none",borderRadius:4,cursor:"pointer"}}>Cancel</button></div></div>}
             </div>
           </div>
 
@@ -2070,7 +2100,7 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
                   <thead>
                     <tr style={{background:"#2c6e3f",color:"#fff"}}>
                       <th style={{padding:"8px",textAlign:"left",fontWeight:700}}>Product</th>
-                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Rate (t/ha)</th>
+                      <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Rate</th>
                       <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Unit Price</th>
                       <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Cost/ha</th>
                       <th style={{padding:"8px",textAlign:"center",fontWeight:700}}>Total Cost</th>
@@ -2078,10 +2108,10 @@ const FertProgramme = ({fields, onBudget, saved, onSave, jobs, setJobs, progStat
                     </tr>
                   </thead>
                   <tbody>
-                    {ccProducts.map(prod=>{const costHa=prod.rate*prod.price; const totalCost=costHa*ccFieldHa; return(<tr key={prod.id} style={{borderBottom:"1px solid #e2e6de",background:"#fff"}}>
+                    {ccProducts.map(prod=>{const isLiquid=prod.category==="liquid_fert"; const displayRate=isLiquid?prod.rate*prod.sg*1000:prod.rate*1000; const costHa=prod.rate*prod.price; const totalCost=costHa*ccFieldHa; return(<tr key={prod.id} style={{borderBottom:"1px solid #e2e6de",background:"#fff"}}>
                       <td style={{padding:"8px"}}><span style={{fontWeight:600}}>{prod.productName}</span></td>
-                      <td style={{padding:"8px",textAlign:"center"}}><strong>{prod.rate.toFixed(2)}</strong></td>
-                      <td style={{padding:"8px",textAlign:"center"}}><input type="number" value={prod.price} onChange={e=>updateProductPrice(prod.id,parseFloat(e.target.value)||0)} style={{...TI,width:70,textAlign:"center",fontSize:10}} /> {prod.category==="liquid_fert"?"£/m³":"£/t"}</td>
+                      <td style={{padding:"8px",textAlign:"center"}}><strong>{displayRate.toFixed(0)} {isLiquid?"L/ha":"kg/ha"}</strong></td>
+                      <td style={{padding:"8px",textAlign:"center"}}><input type="number" value={prod.price} onChange={e=>updateProductPrice(prod.id,parseFloat(e.target.value)||0)} style={{...TI,width:70,textAlign:"center",fontSize:10}} /> {isLiquid?"£/m³":"£/t"}</td>
                       <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:costHa>0?"#2c6e3f":"#d4dace"}}>£{costHa.toFixed(2)}</td>
                       <td style={{padding:"8px",textAlign:"center",fontWeight:700,color:totalCost>0?"#b8922a":"#d4dace"}}>£{totalCost.toFixed(0)}</td>
                       <td style={{padding:"8px",textAlign:"center"}}><button onClick={()=>removeProduct(prod.id)} style={{background:"none",border:"none",color:"#c0392b77",cursor:"pointer",fontSize:14}}>×</button></td>
