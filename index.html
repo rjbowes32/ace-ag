@@ -4012,61 +4012,6 @@ const BudgetTracker = ({fields, setFields, budgets, progState, onSave}) => {
   );
 };
 
-// ─── NEWS / RSS ──────────────────────────────────────────────────────────
-const NewsFeed = () => {
-  const keyResources = [
-    {title:"RB209 — Nutrient Management Guide",url:"https://ahdb.org.uk/nutrient-management-guide-rb209",desc:"The definitive UK guide for fertiliser recommendations. Covers nitrogen, phosphorus, potassium, magnesium, sulphur and lime for all arable and grassland crops. Essential for NVZ compliance and nutrient planning.",cat:"ref"},
-    {title:"CRD Product Search (Pesticide Register)",url:"https://secure.pesticides.gov.uk/pestreg/ProdSearch.asp",desc:"HSE Chemicals Regulation Directorate — official register of all UK-authorised plant protection products. Search by product name, active substance, or approval number to check label conditions and authorisation status.",cat:"ref"},
-    {title:"EAMu Search (Extension of Authorisation for Minor Use)",url:"https://secure.pesticides.gov.uk/pestreg/ProdSearch.asp",desc:"Search for Extensions of Authorisation for Minor Use (formerly SOLAs). These allow approved products to be used on crops or situations not covered by the main label. Check EAMu conditions before applying off-label.",cat:"ref"},
-    {title:"NFU VI IPM Plan",url:"https://www.nfuonline.com/news/fill-in-your-ipm-plan/#menu",desc:"NFU Voluntary Initiative Integrated Pest Management plan template. Fill in your IPM plan for farm assurance compliance — covers cultural controls, thresholds, monitoring, and justification for chemical use.",cat:"ref"},
-  ];
-
-  const feeds = [
-    {title:"AHDB Cereals & Oilseeds",url:"https://ahdb.org.uk",desc:"Market intelligence, variety trials, recommended lists, and levy-funded research for UK combinable crops.",cat:"industry"},
-    {title:"Farmers Weekly",url:"https://www.fwi.co.uk",desc:"UK farming news, crop reports, market analysis, and business management features.",cat:"industry"},
-    {title:"Farmers Guardian",url:"https://www.farmersguardian.com",desc:"Agricultural news, policy updates, and livestock/arable market coverage.",cat:"industry"},
-    {title:"NIAB",url:"https://www.niab.com",desc:"Independent crop research, variety evaluation, and agronomy technical updates.",cat:"industry"},
-    {title:"ADAS",url:"https://www.adas.uk",desc:"Applied agricultural science, environmental consultancy, and sustainability research.",cat:"industry"},
-    {title:"DEFRA Farming",url:"https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs",desc:"Policy updates, SFI schemes, environmental land management, and regulatory changes.",cat:"industry"},
-    {title:"Crop Production Magazine",url:"https://www.cpm-magazine.co.uk",desc:"Technical agronomy features, crop protection, and precision farming updates.",cat:"industry"},
-    {title:"BSPP",url:"https://www.bspp.org.uk",desc:"British Society for Plant Pathology — disease research and alerts.",cat:"technical"},
-    {title:"FRAG-UK",url:"https://ahdb.org.uk/frag",desc:"Fungicide Resistance Action Group — resistance monitoring, stewardship guidance.",cat:"technical"},
-    {title:"WRAG-UK",url:"https://ahdb.org.uk/wrag",desc:"Weed Resistance Action Group — herbicide resistance updates and guidance.",cat:"technical"},
-  ];
-
-  return (
-    <div>
-      {/* Key Reference Resources */}
-      <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>Key Reference Tools</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:8}}>
-          {keyResources.map(f => (
-            <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",background:"#2c6e3f06",borderRadius:10,padding:"12px 16px",textDecoration:"none",border:"1px solid #2c6e3f22",transition:"all 0.15s"}}>
-              <div style={{fontSize:14,fontWeight:700,color:"#2c6e3f",marginBottom:4}}>{f.title} {"↗"}</div>
-              <div style={{fontSize:11,color:"#6b7b6b",lineHeight:1.5}}>{f.desc}</div>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Industry Links */}
-      <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>Industry News & Resources</div>
-        <div style={{fontSize:11,color:"#94a394",marginBottom:12}}>Quick links to the key UK agricultural information sources. Bookmark this tab for easy access during the season.</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:8}}>
-          {feeds.map(f => (
-            <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",background:"#f7f8f6",borderRadius:8,padding:"10px 14px",textDecoration:"none",border:"1px solid #e2e6de",transition:"all 0.15s"}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#2c6e3f",marginBottom:3}}>{f.title} {"↗"}</div>
-              <div style={{fontSize:11,color:"#6b7b6b",lineHeight:1.4}}>{f.desc}</div>
-            </a>
-          ))}
-        </div>
-      </div>
-
-    </div>
-  );
-};
-
 // ─── FARM DIARY ───────────────────────────────────────────────────────────
 const FarmDiary = ({fields, saved, onSave, jobs, setJobs}) => {
   const DTYPES = [
@@ -5557,7 +5502,7 @@ const Knowledge = () => {
   const CS = {padding: "12px 16px", background: "#ffffff", border: "1px solid #e2e6de", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.04)"};
 
   return (
-    <div>
+    <div style={{flex: 1}}>
       <div style={{display: "flex", gap: 4, marginBottom: 16}}>
         <button onClick={() => setSection("weeds")} style={{padding: "6px 18px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "none", cursor: "pointer", transition: "all 0.2s", background: section === "weeds" ? "#2c6e3f" : "#f0f2ee", color: section === "weeds" ? "#fff" : "#6b7b6b"}}>Weed Control</button>
         <button onClick={() => setSection("diseases")} style={{padding: "6px 18px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "none", cursor: "pointer", transition: "all 0.2s", background: section === "diseases" ? "#2c6e3f" : "#f0f2ee", color: section === "diseases" ? "#fff" : "#6b7b6b"}}>Disease Lifecycles</button>
@@ -5638,6 +5583,64 @@ const Knowledge = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const KnowledgeHub = () => {
+  const keyResources = [
+    {title:"RB209 — Nutrient Management Guide",url:"https://ahdb.org.uk/nutrient-management-guide-rb209",desc:"The definitive UK guide for fertiliser recommendations. Covers nitrogen, phosphorus, potassium, magnesium, sulphur and lime for all arable and grassland crops. Essential for NVZ compliance and nutrient planning.",cat:"ref"},
+    {title:"CRD Product Search (Pesticide Register)",url:"https://secure.pesticides.gov.uk/pestreg/ProdSearch.asp",desc:"HSE Chemicals Regulation Directorate — official register of all UK-authorised plant protection products. Search by product name, active substance, or approval number to check label conditions and authorisation status.",cat:"ref"},
+    {title:"EAMu Search (Extension of Authorisation for Minor Use)",url:"https://secure.pesticides.gov.uk/pestreg/ProdSearch.asp",desc:"Search for Extensions of Authorisation for Minor Use (formerly SOLAs). These allow approved products to be used on crops or situations not covered by the main label. Check EAMu conditions before applying off-label.",cat:"ref"},
+    {title:"NFU VI IPM Plan",url:"https://www.nfuonline.com/news/fill-in-your-ipm-plan/#menu",desc:"NFU Voluntary Initiative Integrated Pest Management plan template. Fill in your IPM plan for farm assurance compliance — covers cultural controls, thresholds, monitoring, and justification for chemical use.",cat:"ref"},
+  ];
+
+  const feeds = [
+    {title:"AHDB Cereals & Oilseeds",url:"https://ahdb.org.uk",desc:"Market intelligence, variety trials, recommended lists, and levy-funded research for UK combinable crops.",cat:"industry"},
+    {title:"Farmers Weekly",url:"https://www.fwi.co.uk",desc:"UK farming news, crop reports, market analysis, and business management features.",cat:"industry"},
+    {title:"Farmers Guardian",url:"https://www.farmersguardian.com",desc:"Agricultural news, policy updates, and livestock/arable market coverage.",cat:"industry"},
+    {title:"NIAB",url:"https://www.niab.com",desc:"Independent crop research, variety evaluation, and agronomy technical updates.",cat:"industry"},
+    {title:"ADAS",url:"https://www.adas.uk",desc:"Applied agricultural science, environmental consultancy, and sustainability research.",cat:"industry"},
+    {title:"DEFRA Farming",url:"https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs",desc:"Policy updates, SFI schemes, environmental land management, and regulatory changes.",cat:"industry"},
+    {title:"Crop Production Magazine",url:"https://www.cpm-magazine.co.uk",desc:"Technical agronomy features, crop protection, and precision farming updates.",cat:"industry"},
+    {title:"BSPP",url:"https://www.bspp.org.uk",desc:"British Society for Plant Pathology — disease research and alerts.",cat:"technical"},
+    {title:"FRAG-UK",url:"https://ahdb.org.uk/frag",desc:"Fungicide Resistance Action Group — resistance monitoring, stewardship guidance.",cat:"technical"},
+    {title:"WRAG-UK",url:"https://ahdb.org.uk/wrag",desc:"Weed Resistance Action Group — herbicide resistance updates and guidance.",cat:"technical"},
+  ];
+
+  return (
+    <div style={{display: "flex", gap: 16}}>
+      {/* Left: Useful Links */}
+      <div style={{width: "35%", minWidth: "300px"}}>
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>Key Reference Tools</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8}}>
+            {keyResources.map(f => (
+              <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",background:"#2c6e3f06",borderRadius:8,padding:"10px 12px",textDecoration:"none",border:"1px solid #2c6e3f22",transition:"all 0.15s",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#2c6e3f"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2c6e3f22"}>
+                <div style={{fontSize:12,fontWeight:700,color:"#2c6e3f",marginBottom:3}}>{f.title} {"↗"}</div>
+                <div style={{fontSize:10,color:"#6b7b6b",lineHeight:1.4}}>{f.desc}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div style={{background:"#fff",border:"1px solid #e2e6de",borderRadius:10,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7b6b",textTransform:"uppercase",marginBottom:8}}>Industry News & Resources</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8}}>
+            {feeds.map(f => (
+              <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",background:"#f7f8f6",borderRadius:8,padding:"8px 11px",textDecoration:"none",border:"1px solid #e2e6de",transition:"all 0.15s",cursor:"pointer",fontSize:11}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#2c6e3f"; e.currentTarget.style.background="#f0f2ee";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2e6de"; e.currentTarget.style.background="#f7f8f6";}}>
+                <div style={{fontWeight:700,color:"#2c6e3f",marginBottom:2}}>{f.title} {"↗"}</div>
+                <div style={{color:"#6b7b6b",lineHeight:1.3,fontSize:10}}>{f.desc}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Knowledge */}
+      <div style={{flex: 1}}>
+        <Knowledge />
+      </div>
     </div>
   );
 };
@@ -6554,8 +6557,7 @@ function App() {
     {id: "diary", l: "Activities"},
     {id: "livestock", l: "Livestock"},
     {id: "seed", l: "Seed"},
-    {id: "know", l: "Knowledge"},
-    {id: "news", l: "Useful Links"},
+    {id: "know", l: "Knowledge Hub"},
   ];
 
   return (
@@ -6628,8 +6630,7 @@ function App() {
         <div style={{display: tab === "diary" ? "block" : "none"}}><FarmDiary key={"di-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.spray} onSave={s => onProgSave("spray",s)} jobs={jobs} setJobs={setJobs} /></div>
         <div style={{display: tab === "livestock" ? "block" : "none"}}><LivestockTab key={"ls-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.livestock} onSave={s => onProgSave("livestock",s)} /></div>
         <div style={{display: tab === "seed" ? "block" : "none"}}><SeedCalc key={"sd-"+loadKey+"-"+activeFarmId} fields={fields} saved={progState.seed} onSave={s => onProgSave("seed",s)} /></div>
-        <div style={{display: tab === "know" ? "block" : "none"}}><Knowledge /></div>
-        <div style={{display: tab === "news" ? "block" : "none"}}><NewsFeed /></div>
+        <div style={{display: tab === "know" ? "block" : "none"}}><KnowledgeHub /></div>
         </>)}
       </div>
       <div style={{borderTop: "1px solid #e2e6de", padding: "16px 24px", marginTop: 30, textAlign: "center"}}>
